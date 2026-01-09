@@ -503,6 +503,11 @@ func runServe(cmd *cobra.Command, args []string) {
 	agentsDir := filepath.Join(loomDataDir, "agents")
 	weaverDestPath := filepath.Join(agentsDir, "weaver.yaml")
 	if _, err := os.Stat(weaverDestPath); os.IsNotExist(err) {
+		// Ensure agents directory exists
+		if err := os.MkdirAll(agentsDir, 0755); err != nil {
+			logger.Warn("Failed to create agents directory", zap.Error(err))
+		}
+
 		// Get weaver from embedded files
 		weaverData := embedded.GetWeaver()
 		logger.Info("Using embedded weaver.yaml")
