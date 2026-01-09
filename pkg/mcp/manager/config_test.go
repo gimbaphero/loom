@@ -60,13 +60,12 @@ func TestConfig_Validate(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "no servers",
+			name: "no servers (allowed for dynamic addition)",
 			config: Config{
 				Servers:    map[string]ServerConfig{},
 				ClientInfo: ClientInfo{Name: "test", Version: "0.1.0"},
 			},
-			wantErr: true,
-			errMsg:  "no servers configured",
+			wantErr: false, // Zero servers now allowed for dynamic server addition
 		},
 		{
 			name: "stdio missing command",

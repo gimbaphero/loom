@@ -718,19 +718,16 @@ func runServe(cmd *cobra.Command, args []string) {
 			zap.String("supported", "anthropic, bedrock, ollama, openai, azure-openai, mistral, gemini, huggingface"))
 	}
 
-	// Initialize MCP manager if MCP servers are configured
+	// Initialize MCP manager (always, to allow dynamic server addition via TUI/gRPC)
 	var mcpManager *mcpManager
-	if len(config.MCP.Servers) > 0 {
-		logger.Info("Initializing MCP servers", zap.Int("count", len(config.MCP.Servers)))
-		mcpManager, err = initializeMCPManager(config, logger)
-		if err != nil {
-			logger.Warn("Failed to initialize MCP manager", zap.Error(err))
-			logger.Warn("Agents will not have access to MCP tools")
-		} else {
-			logger.Info("MCP manager initialized successfully", zap.Int("servers_started", len(config.MCP.Servers)))
-		}
+	logger.Info("Initializing MCP manager", zap.Int("configured_servers", len(config.MCP.Servers)))
+	mcpManager, err = initializeMCPManager(config, logger)
+	if err != nil {
+		logger.Warn("Failed to initialize MCP manager", zap.Error(err))
+		logger.Warn("Agents will not have access to MCP tools")
+		mcpManager = nil // Ensure it's nil on failure
 	} else {
-		logger.Info("No MCP servers configured")
+		logger.Info("MCP manager initialized successfully", zap.Int("servers_started", len(config.MCP.Servers)))
 	}
 
 	// Create tool registry for dynamic tool discovery

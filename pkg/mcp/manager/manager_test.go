@@ -45,8 +45,12 @@ func TestNewManager(t *testing.T) {
 }
 
 func TestNewManager_InvalidConfig(t *testing.T) {
+	// Test with negative cache size (invalid)
 	config := Config{
 		Servers: map[string]ServerConfig{},
+		DynamicDiscovery: DynamicDiscoveryConfig{
+			CacheSize: -1, // Invalid
+		},
 	}
 
 	mgr, err := NewManager(config, nil)

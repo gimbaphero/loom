@@ -86,9 +86,8 @@ type ClientInfo struct {
 
 // Validate checks the configuration for errors.
 func (c *Config) Validate() error {
-	if len(c.Servers) == 0 {
-		return fmt.Errorf("no servers configured")
-	}
+	// Allow zero servers to support dynamic server addition via TUI/gRPC
+	// Servers can be added later via Manager.AddServer()
 
 	for name, server := range c.Servers {
 		if err := server.Validate(); err != nil {
