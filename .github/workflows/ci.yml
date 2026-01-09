@@ -62,7 +62,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Setup Buf
@@ -76,7 +76,7 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          extended: false
+          extended: true
 
       - name: Build documentation
         run: |
@@ -112,7 +112,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ['1.24']
+        go-version: ['1.25']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -162,7 +162,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload coverage
-        if: matrix.go-version == '1.24'
+        if: matrix.go-version == '1.25'
         uses: codecov/codecov-action@v4
         with:
           files: ./coverage.out
@@ -173,7 +173,7 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Upload coverage artifacts
-        if: matrix.go-version == '1.24'
+        if: matrix.go-version == '1.25'
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
@@ -191,7 +191,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.24']
+        go-version: ['1.25']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -269,7 +269,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Setup Buf
@@ -283,7 +283,7 @@ jobs:
       - name: Setup Hugo
         uses: peaceiris/actions-hugo@v3
         with:
-          extended: false
+          extended: true
 
       - name: Build documentation
         run: |

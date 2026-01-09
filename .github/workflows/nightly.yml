@@ -63,7 +63,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Setup Buf
@@ -104,7 +104,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Setup Buf
@@ -161,7 +161,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go-version: ['1.24']
+        go-version: ['1.25']
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -272,7 +272,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: '1.24'
+          go-version: '1.25'
           cache: true
 
       - name: Setup Buf
