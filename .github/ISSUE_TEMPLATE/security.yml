@@ -1,0 +1,120 @@
+name: 🔒 Security Vulnerability
+description: Report a security vulnerability (PRIVATE - will not be publicly visible)
+title: "[SECURITY]: "
+labels: ["security", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ⚠️ Security Vulnerability Reporting
+
+        **IMPORTANT**: If this is a critical security vulnerability that could be actively exploited,
+        please report it privately via GitHub Security Advisories instead:
+        https://github.com/teradata-labs/loom/security/advisories/new
+
+        For non-critical security improvements or questions, you can use this template.
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this vulnerability?
+      options:
+        - Critical (remote code execution, data breach)
+        - High (privilege escalation, authentication bypass)
+        - Medium (information disclosure)
+        - Low (minor security improvement)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Vulnerability Type
+      description: What type of security issue is this?
+      options:
+        - Code injection (SQL, command, etc.)
+        - Authentication/Authorization
+        - Information disclosure
+        - Denial of Service
+        - Race condition
+        - Memory safety
+        - Hardcoded secrets
+        - Insecure dependencies
+        - Configuration issue
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Vulnerability Description
+      description: Describe the security issue
+      placeholder: What is the vulnerability?
+    validations:
+      required: true
+
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact
+      description: What can an attacker do with this vulnerability?
+      placeholder: Describe the potential impact
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can this vulnerability be demonstrated? (if safe to share)
+      placeholder: |
+        1. Configure...
+        2. Execute...
+        3. Observe...
+      value: |
+        1.
+        2.
+        3.
+
+  - type: textarea
+    id: affected
+    attributes:
+      label: Affected Versions
+      description: Which versions are affected?
+      placeholder: |
+        - Loom v0.5.2
+        - Affects: pkg/communication/store.go line 123
+
+  - type: textarea
+    id: remediation
+    attributes:
+      label: Suggested Remediation
+      description: Do you have suggestions for fixing this?
+      placeholder: How should this be fixed?
+
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Any relevant CVEs, CWEs, or documentation
+      placeholder: |
+        - CWE-XXX: ...
+        - Similar issue: ...
+        - Documentation: ...
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Responsible Disclosure
+      description: Please confirm
+      options:
+        - label: I understand this will be publicly visible once submitted
+          required: true
+        - label: For critical vulnerabilities, I will use GitHub Security Advisories instead
+          required: true
+        - label: I will not publicly disclose details until a fix is available
+          required: true

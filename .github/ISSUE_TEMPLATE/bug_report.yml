@@ -1,0 +1,147 @@
+name: 🐛 Bug Report
+description: Report a bug or unexpected behavior
+title: "[BUG]: "
+labels: ["bug", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us investigate.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug Description
+      description: A clear and concise description of the bug
+      placeholder: What happened?
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: Describe the expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual Behavior
+      description: What actually happened?
+      placeholder: Describe what actually happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: Detailed steps to reproduce the bug
+      placeholder: |
+        1. Run command '...'
+        2. Configure with '...'
+        3. Observe error '...'
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Your environment details
+      value: |
+        - **Loom Version**: (run `looms --version`)
+        - **Go Version**: (run `go version`)
+        - **OS**: (e.g., Ubuntu 22.04, macOS 14.0, Windows 11)
+        - **Architecture**: (e.g., amd64, arm64)
+        - **Installation Method**: (binary, source, Docker)
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: Relevant configuration (YAML, environment variables)
+      placeholder: |
+        ```yaml
+        # Paste relevant config here
+        ```
+      render: yaml
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs and Error Messages
+      description: Relevant logs or error messages
+      placeholder: |
+        ```
+        Paste error messages or logs here
+        ```
+      render: shell
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      description: How severe is this bug?
+      options:
+        - Critical (production outage, data loss)
+        - High (major functionality broken)
+        - Medium (workaround exists)
+        - Low (minor issue, cosmetic)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      description: Which component is affected?
+      options:
+        - agent (Agent runtime)
+        - communication (Message passing, references)
+        - orchestration (Workflows, patterns)
+        - server (looms server)
+        - cli (Command-line tools)
+        - observability (Tracing, metrics)
+        - prompts (Prompt management)
+        - fabric (Backend interface)
+        - shuttle (Tool system)
+        - proto (Protocol buffers)
+        - documentation
+        - other (specify in description)
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm the following
+      options:
+        - label: I have searched existing issues to avoid duplicates
+          required: true
+        - label: I have included all relevant information above
+          required: true
+        - label: I can reproduce this bug consistently
+          required: false
+        - label: I have logs or error messages to share
+          required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other context, screenshots, or information
+      placeholder: Add any other context about the problem here

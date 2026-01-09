@@ -1,0 +1,81 @@
+name: 📚 Documentation Issue
+description: Report missing, incorrect, or unclear documentation
+title: "[DOCS]: "
+labels: ["documentation", "needs-triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve our documentation!
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation issue is this?
+      options:
+        - Missing documentation
+        - Incorrect information
+        - Unclear/confusing content
+        - Outdated content
+        - Broken links
+        - Missing examples
+        - Typo or grammar
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: Documentation Location
+      description: Which file or page has the issue?
+      placeholder: "e.g., docs/guides/ARCHITECTURE.md, README.md line 42"
+    validations:
+      required: true
+
+  - type: textarea
+    id: issue
+    attributes:
+      label: Issue Description
+      description: What's wrong with the current documentation?
+      placeholder: Describe the issue clearly
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Documentation
+      description: What should the documentation say instead?
+      placeholder: Describe what you expected to find or suggest improvements
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional Context
+      description: Any other context or examples
+      placeholder: |
+        - How did you find this issue?
+        - What were you trying to accomplish?
+        - Any relevant examples or use cases?
+
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      description: Can you help fix this?
+      options:
+        - label: I can submit a PR to fix this documentation issue
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Pre-submission Checklist
+      description: Please confirm
+      options:
+        - label: I have checked that this documentation issue hasn't been reported before
+          required: true
+        - label: I have verified this issue exists in the latest version
+          required: true
