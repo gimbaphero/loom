@@ -246,14 +246,15 @@ You are a {{.backend_type}} agent.`
 
 	fmt.Printf("Key: %s\n", metadata.Key)
 	fmt.Printf("Version: %s\n", metadata.Version)
-	fmt.Printf("Author: %s\n", metadata.Author)
+	if metadata.Author != "" {
+		fmt.Printf("Author: %s\n", metadata.Author)
+	}
 	fmt.Printf("Tags: %v\n", metadata.Tags)
 	fmt.Printf("Variables: %v\n", metadata.Variables)
 
 	// Output:
 	// Key: agent.system
 	// Version: 2.1.0
-	// Author:
 	// Tags: [agent system sql]
 	// Variables: [backend_type session_id]
 }

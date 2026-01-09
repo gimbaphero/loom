@@ -17,7 +17,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -25,6 +24,7 @@ import (
 
 	_ "github.com/mutecomm/go-sqlcipher/v4"
 	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
+	"github.com/teradata-labs/loom/pkg/config"
 )
 
 // SQLResultStore stores SQL query results in queryable SQLite tables.
@@ -498,9 +498,5 @@ func sanitizeIdentifier(name string) string {
 
 // GetDefaultLoomDBPath returns the default path to loom.db
 func GetDefaultLoomDBPath() string {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return ".loom/loom.db" // Fallback to current directory
-	}
-	return filepath.Join(home, ".loom", "loom.db")
+	return filepath.Join(config.GetLoomDataDir(), "loom.db")
 }

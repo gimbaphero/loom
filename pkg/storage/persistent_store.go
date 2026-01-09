@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"sync"
 
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"go.uber.org/zap"
 )
 
@@ -56,13 +57,7 @@ func GetGlobalSharedMemory(config *Config) *SharedMemoryStore {
 		// Determine cache directory
 		cacheDir := os.Getenv("LOOM_TOOL_CACHE_DIR")
 		if cacheDir == "" {
-			homeDir, err := os.UserHomeDir()
-			if err != nil {
-				logger.Warn("Failed to get home directory, using temp dir",
-					zap.Error(err))
-				homeDir = os.TempDir()
-			}
-			cacheDir = filepath.Join(homeDir, ".loom", "tool_results")
+			cacheDir = filepath.Join(loomconfig.GetLoomDataDir(), "tool_results")
 		}
 
 		// Create disk overflow handler for persistence

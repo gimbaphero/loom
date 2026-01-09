@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/viper"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"github.com/zalando/go-keyring"
 )
 
@@ -32,6 +33,11 @@ const (
 // Config holds all configuration for the Loom server.
 // Priority: CLI flags > config file > env vars > defaults
 type Config struct {
+	// DataDir is the Loom data directory (computed from LOOM_DATA_DIR env var or ~/.loom)
+	// This field is set during config initialization and is read-only.
+	// It is not loaded from config file - use LOOM_DATA_DIR environment variable to override.
+	DataDir string `mapstructure:"-"`
+
 	// Server configuration
 	Server ServerConfig `mapstructure:"server"`
 
@@ -551,16 +557,11 @@ func LoadConfig(cfgFile string) (*Config, error) {
 		viper.SetConfigFile(cfgFile)
 	} else {
 		// Search for config in standard locations
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-
 		// Config search paths (in order of priority)
-		viper.AddConfigPath(filepath.Join(home, ".loom")) // ~/.loom/ (preferred)
-		viper.AddConfigPath(".")                          // Current directory
-		viper.AddConfigPath("/etc/loom/")                 // System-wide
-		viper.SetConfigName(DefaultConfigFileName)        // looms.yaml
+		viper.AddConfigPath(loomconfig.GetLoomDataDir()) // Loom data directory (respects LOOM_DATA_DIR)
+		viper.AddConfigPath(".")                         // Current directory
+		viper.AddConfigPath("/etc/loom/")                // System-wide
+		viper.SetConfigName(DefaultConfigFileName)       // looms.yaml
 		viper.SetConfigType("yaml")
 	}
 
@@ -582,6 +583,10 @@ func LoadConfig(cfgFile string) (*Config, error) {
 	if err := viper.Unmarshal(&config); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal config: %w", err)
 	}
+
+	// Set DataDir from environment or default
+	// This must be done after unmarshal since it's not loaded from config file
+	config.DataDir = loomconfig.GetLoomDataDir()
 
 	// Load secrets from keyring if not provided via CLI/env
 	// Non-fatal: keyring might not be available - user can provide secrets via CLI/env
@@ -618,9 +623,8 @@ func setDefaults() {
 	viper.SetDefault("llm.max_tokens", 4096)
 	viper.SetDefault("llm.timeout_seconds", 60)
 
-	// Database defaults (use ~/.loom directory)
-	home, _ := os.UserHomeDir()
-	defaultDBPath := filepath.Join(home, ".loom", "loom.db")
+	// Database defaults (use loom data directory)
+	defaultDBPath := filepath.Join(loomconfig.GetLoomDataDir(), "loom.db")
 	viper.SetDefault("database.path", defaultDBPath)
 	viper.SetDefault("database.driver", "sqlite")
 
@@ -681,7 +685,7 @@ func setDefaults() {
 	viper.SetDefault("learning.enabled", true)
 	viper.SetDefault("learning.autonomy_level", "manual")
 	viper.SetDefault("learning.analysis_interval", "1h")
-	defaultLearningDir := filepath.Join(home, ".loom", "learning")
+	defaultLearningDir := filepath.Join(loomconfig.GetLoomDataDir(), "learning")
 	viper.SetDefault("learning.config_dir", defaultLearningDir)
 
 	// Docker defaults (platform-aware socket paths)

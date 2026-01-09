@@ -130,56 +130,60 @@ build-minimal: proto
     @echo "Note: Default build targets (build-server, build-tui) are now minimal builds"
     @echo "This binary includes both server and TUI - no separate server needed!"
 
-# Install patterns to ~/.loom/patterns
+# Install patterns to $LOOM_DATA_DIR/patterns (defaults to ~/.loom/patterns)
 install-patterns:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Installing patterns to ~/.loom/patterns..."
-    mkdir -p ~/.loom/patterns
+    LOOM_DIR="${LOOM_DATA_DIR:-~/.loom}"
+    echo "Installing patterns to $LOOM_DIR/patterns..."
+    mkdir -p "$LOOM_DIR/patterns"
     # Copy all pattern directories and their contents
-    rsync -av --delete patterns/ ~/.loom/patterns/
-    echo "✅ Patterns installed to ~/.loom/patterns"
-    echo "   Found $(find ~/.loom/patterns -name '*.yaml' | wc -l) pattern files"
+    rsync -av --delete patterns/ "$LOOM_DIR/patterns/"
+    echo "✅ Patterns installed to $LOOM_DIR/patterns"
+    echo "   Found $(find "$LOOM_DIR/patterns" -name '*.yaml' | wc -l) pattern files"
 
-# Install documentation to ~/.loom/documentation
+# Install documentation to $LOOM_DATA_DIR/documentation (defaults to ~/.loom/documentation)
 install-docs:
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Installing documentation to ~/.loom/documentation..."
-    mkdir -p ~/.loom/documentation
+    LOOM_DIR="${LOOM_DATA_DIR:-~/.loom}"
+    echo "Installing documentation to $LOOM_DIR/documentation..."
+    mkdir -p "$LOOM_DIR/documentation"
     # Copy entire docs directory (architecture, guides, reference, etc.)
     if [ -d "website/content/en/docs" ]; then
-        rsync -av --delete website/content/en/docs/ ~/.loom/documentation/
+        rsync -av --delete website/content/en/docs/ "$LOOM_DIR/documentation/"
         echo "   ✅ All documentation copied"
     fi
     # Copy styleguide files if they exist
     if [ -f "pkg/visualization/styleguide_client.go" ]; then
-        cp pkg/visualization/styleguide_client.go ~/.loom/documentation/
+        cp pkg/visualization/styleguide_client.go "$LOOM_DIR/documentation/"
         echo "   ✅ Styleguide client copied"
     fi
     if [ -f "website/StyleGuide.tsx" ]; then
-        cp website/StyleGuide.tsx ~/.loom/documentation/
+        cp website/StyleGuide.tsx "$LOOM_DIR/documentation/"
         echo "   ✅ StyleGuide.tsx copied"
     fi
-    echo "✅ Documentation installed to ~/.loom/documentation"
-    echo "   Total files: $(find ~/.loom/documentation -name '*.md' 2>/dev/null | wc -l) markdown files"
-    echo "   Architecture: $(find ~/.loom/documentation/architecture -name '*.md' 2>/dev/null | wc -l) files"
-    echo "   Guides: $(find ~/.loom/documentation/guides -name '*.md' 2>/dev/null | wc -l) files"
-    echo "   Reference: $(find ~/.loom/documentation/reference -name '*.md' 2>/dev/null | wc -l) files"
+    echo "✅ Documentation installed to $LOOM_DIR/documentation"
+    echo "   Total files: $(find "$LOOM_DIR/documentation" -name '*.md' 2>/dev/null | wc -l) markdown files"
+    echo "   Architecture: $(find "$LOOM_DIR/documentation/architecture" -name '*.md' 2>/dev/null | wc -l) files"
+    echo "   Guides: $(find "$LOOM_DIR/documentation/guides" -name '*.md' 2>/dev/null | wc -l) files"
+    echo "   Reference: $(find "$LOOM_DIR/documentation/reference" -name '*.md' 2>/dev/null | wc -l) files"
 
 # Install binaries, patterns, and documentation to user directory
+# Set LOOM_BIN_DIR to customize installation directory (defaults to ~/.local/bin)
 install: build install-patterns install-docs
     #!/usr/bin/env bash
     set -euo pipefail
-    echo "Installing Loom binaries..."
-    mkdir -p ~/.local/bin
-    cp bin/looms ~/.local/bin/
-    cp bin/loom ~/.local/bin/
-    chmod +x ~/.local/bin/looms ~/.local/bin/loom
-    echo "✅ Binaries installed to ~/.local/bin"
+    BIN_DIR="${LOOM_BIN_DIR:-~/.local/bin}"
+    echo "Installing Loom binaries to $BIN_DIR..."
+    mkdir -p "$BIN_DIR"
+    cp bin/looms "$BIN_DIR/"
+    cp bin/loom "$BIN_DIR/"
+    chmod +x "$BIN_DIR/looms" "$BIN_DIR/loom"
+    echo "✅ Binaries installed to $BIN_DIR"
     echo ""
-    echo "Make sure ~/.local/bin is in your PATH:"
-    echo "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+    echo "Make sure $BIN_DIR is in your PATH:"
+    echo "  export PATH=\"$BIN_DIR:\$PATH\""
     echo ""
     echo "Start the server:"
     echo "  looms serve"
@@ -354,10 +358,12 @@ clean:
     rm -rf dist/
     find . -name "*.test" -delete
     find . -name "*.out" -delete
-    # Clean installed binaries
-    rm -rf ~/.local/bin/loom ~/.local/bin/looms ~/.local/bin/hawk
-    # Clean app data directories
-    rm -rf ~/.loom ~/.hawk
+    # Clean installed binaries (use LOOM_BIN_DIR if set, otherwise ~/.local/bin)
+    BIN_DIR="${LOOM_BIN_DIR:-~/.local/bin}"
+    rm -rf "$BIN_DIR/loom" "$BIN_DIR/looms" "$BIN_DIR/hawk"
+    # Clean app data directories (use LOOM_DATA_DIR if set, otherwise ~/.loom)
+    LOOM_DIR="${LOOM_DATA_DIR:-~/.loom}"
+    rm -rf "$LOOM_DIR" ~/.hawk
     # Clean any databases in project root
     rm -f *.db *.sqlite *.sqlite3
     # Clean any stray binaries in project root

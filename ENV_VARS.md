@@ -43,6 +43,81 @@ export LOOM_DATA_DIR=~/my-loom           # Expands to /home/user/my-loom
 export LOOM_DATA_DIR=relative/path       # Converted to absolute
 ```
 
+**Directory Structure:**
+
+Loom creates the following subdirectories within `$LOOM_DATA_DIR/`:
+
+```
+$LOOM_DATA_DIR/
+├── looms.yaml              # Main configuration file
+├── loom.db                 # SQLite database (sessions, artifacts, etc.)
+├── agents/                 # Agent configuration files
+├── workflows/              # Workflow definitions
+├── patterns/               # Pattern library (installed via 'just install-patterns')
+├── documentation/          # Loom documentation (installed via 'just install-docs')
+├── examples/               # Example configurations
+├── artifacts/              # User artifacts and agent outputs
+├── scratchpad/             # Agent working directory
+├── memory/                 # Agent memory databases
+├── tool_results/           # Tool result cache
+├── certs/                  # TLS certificates (Let's Encrypt)
+└── scheduler.db            # Workflow scheduler database
+```
+
+**Migration from ~/.loom:**
+
+Existing installations using `~/.loom` will continue to work. To migrate to a custom location:
+
+```bash
+# Stop Loom server
+# Move data directory
+mv ~/.loom /var/lib/loom
+
+# Set environment variable (add to ~/.bashrc or ~/.zshrc)
+export LOOM_DATA_DIR=/var/lib/loom
+
+# Start Loom server
+looms serve
+```
+
+**Docker/Container Usage:**
+
+```bash
+# Set LOOM_DATA_DIR to a mounted volume
+docker run -e LOOM_DATA_DIR=/data/loom -v /host/loom-data:/data/loom loom:latest
+```
+
+### LOOM_BIN_DIR
+**Default:** `~/.local/bin`
+**Used in:** `Justfile` (installation scripts only)
+**Type:** Installation-time only (not used at runtime)
+
+Specifies where Loom binaries are installed during `just install` and cleaned during `just clean`.
+
+- Only affects installation scripts, not the running application
+- The application never needs to know where its binary is installed
+- NOT managed by viper or included in runtime configuration
+- Tilde (`~`) expansion supported
+
+**Examples:**
+```bash
+# Install to custom location
+export LOOM_BIN_DIR=/usr/local/bin
+just install
+
+# Install to user bin directory (default)
+just install  # Uses ~/.local/bin
+
+# Clean from custom location
+export LOOM_BIN_DIR=/usr/local/bin
+just clean
+```
+
+**Why not in viper?**
+- `LOOM_DATA_DIR` is used **at runtime** by the application to find config/data
+- `LOOM_BIN_DIR` is used **at installation time** by build scripts to copy binaries
+- The running application never needs to know where its binary is installed
+
 ### LOOM_YOLO
 **Default:** `false`
 **Values:** `true`, `1`, `false`, `0`
@@ -718,7 +793,8 @@ export USER=username
 Loom uses the following naming conventions:
 
 1. **LOOM_** prefix: Loom-specific configuration
-   - Example: `LOOM_DATA_DIR`, `LOOM_YOLO`
+   - Runtime: `LOOM_DATA_DIR`, `LOOM_YOLO`
+   - Installation-time: `LOOM_BIN_DIR`
 
 2. **LOOM_LLM_** prefix: LLM provider configuration
    - Example: `LOOM_LLM_BEDROCK_REGION`, `LOOM_LLM_OLLAMA_MODEL`
@@ -743,6 +819,8 @@ Configuration sources are applied in this order (highest to lowest priority):
 3. **Configuration file** (`looms.yaml`)
 4. **System keyring** (via `looms config set-key`)
 5. **Defaults** (hardcoded in application)
+
+**Note:** Installation-time environment variables like `LOOM_BIN_DIR` are not part of this priority order because they are only used by installation scripts (`Justfile`), not by the running application.
 
 ---
 
@@ -775,11 +853,18 @@ looms config set-key hawk_api_key
 aws configure --profile bedrock
 export AWS_PROFILE=bedrock
 
-# Use LOOM_DATA_DIR for custom data location
-export LOOM_DATA_DIR=~/my-loom-data
+# Customize installation directories (optional)
+export LOOM_BIN_DIR=/usr/local/bin      # Where to install binaries
+export LOOM_DATA_DIR=~/my-loom-data     # Where to store data/config
+
+# Install with custom paths
+just install
 
 # Enable YOLO mode for autonomous operation (optional)
 export LOOM_YOLO=true
+
+# Start server (uses LOOM_DATA_DIR at runtime)
+looms serve
 ```
 
 ---
@@ -861,5 +946,6 @@ export LOOM_EMBEDDED_SQLITE_PATH=./traces.db
 
 - [README.md](README.md) - Project overview
 - [CLAUDE.md](CLAUDE.md) - Development guidelines
-- Configuration file: `~/.loom/looms.yaml`
+- Configuration file: `~/.loom/looms.yaml` (or `$LOOM_DATA_DIR/looms.yaml`)
 - Keyring management: `looms config set-key`, `looms config get-key`, `looms config list-keys`
+- Build configuration: `Justfile` - Uses `LOOM_BIN_DIR` and `LOOM_DATA_DIR` for installation

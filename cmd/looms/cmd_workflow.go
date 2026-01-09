@@ -25,6 +25,7 @@ import (
 	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
 	"github.com/teradata-labs/loom/pkg/agent"
 	"github.com/teradata-labs/loom/pkg/communication"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"github.com/teradata-labs/loom/pkg/llm/anthropic"
 	"github.com/teradata-labs/loom/pkg/llm/azureopenai"
 	"github.com/teradata-labs/loom/pkg/llm/bedrock"
@@ -244,8 +245,7 @@ func runWorkflow(cmd *cobra.Command, args []string) {
 	// Create session store for telemetry
 	dbPath := config.Database.Path
 	if dbPath == "" {
-		homeDir, _ := os.UserHomeDir()
-		dbPath = filepath.Join(homeDir, ".loom", "loom.db")
+		dbPath = filepath.Join(loomconfig.GetLoomDataDir(), "loom.db")
 	}
 	sessionStore, err := agent.NewSessionStore(dbPath, tracer)
 	if err != nil {
@@ -268,8 +268,7 @@ func runWorkflow(cmd *cobra.Command, args []string) {
 	}
 
 	// Determine config directory for agent YAMLs
-	homeDir, _ := os.UserHomeDir()
-	configDir := filepath.Join(homeDir, ".loom")
+	configDir := loomconfig.GetLoomDataDir()
 
 	// Create agent registry to load agent configurations with MCP tools
 	var mcpManager *manager.Manager
@@ -550,7 +549,7 @@ func runList(cmd *cobra.Command, args []string) {
 		defaultDirs := []string{
 			"./workflows",
 			"./examples/workflows",
-			filepath.Join(os.Getenv("HOME"), ".loom/workflows"),
+			filepath.Join(loomconfig.GetLoomDataDir(), "workflows"),
 		}
 
 		for _, dir := range defaultDirs {

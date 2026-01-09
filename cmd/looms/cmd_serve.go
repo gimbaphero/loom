@@ -33,6 +33,7 @@ import (
 	"github.com/teradata-labs/loom/pkg/agent"
 	"github.com/teradata-labs/loom/pkg/artifacts"
 	"github.com/teradata-labs/loom/pkg/communication"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"github.com/teradata-labs/loom/pkg/fabric"
 	fabricfactory "github.com/teradata-labs/loom/pkg/fabric/factory"
 	"github.com/teradata-labs/loom/pkg/llm/anthropic"
@@ -427,31 +428,27 @@ func runServe(cmd *cobra.Command, args []string) {
 	logger.Info("Error store initialized (error submission channel enabled)")
 
 	// Initialize artifacts directory
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		logger.Fatal("Failed to get home directory", zap.Error(err))
-	}
-	artifactsDir := filepath.Join(homeDir, ".loom", "artifacts")
+	loomDataDir := loomconfig.GetLoomDataDir()
+	artifactsDir := filepath.Join(loomDataDir, "artifacts")
 	if err := os.MkdirAll(artifactsDir, 0750); err != nil {
 		logger.Fatal("Failed to create artifacts directory", zap.Error(err))
 	}
 	logger.Info("Artifacts directory initialized", zap.String("path", artifactsDir))
 
 	// Initialize scratchpad directory for agent notes and research
-	scratchpadDir := filepath.Join(homeDir, ".loom", "scratchpad")
+	scratchpadDir := filepath.Join(loomDataDir, "scratchpad")
 	if err := os.MkdirAll(scratchpadDir, 0750); err != nil {
 		logger.Fatal("Failed to create scratchpad directory", zap.Error(err))
 	}
 	logger.Info("Scratchpad directory initialized", zap.String("path", scratchpadDir))
 
-	// Copy documentation from website/content/en/docs to ~/.loom/documentation
-	docsDestDir := filepath.Join(homeDir, ".loom", "documentation")
-	// Try to find the docs source directory (might be in current dir or GOPATH)
+	// Copy documentation from website/content/en/docs to loom data directory
+	docsDestDir := filepath.Join(loomDataDir, "documentation")
+	// Try to find the docs source directory (might be in current dir or parent dir)
 	var docsSourceDir string
 	possiblePaths := []string{
 		filepath.Join("website", "content", "en", "docs"),
 		filepath.Join("..", "website", "content", "en", "docs"),
-		filepath.Join(os.Getenv("HOME"), "Projects", "loom", "website", "content", "en", "docs"),
 	}
 	for _, path := range possiblePaths {
 		if info, err := os.Stat(path); err == nil && info.IsDir() {
@@ -473,14 +470,13 @@ func runServe(cmd *cobra.Command, args []string) {
 		logger.Warn("Documentation source not found, skipping copy")
 	}
 
-	// Copy examples directory to ~/.loom/examples
-	examplesDestDir := filepath.Join(homeDir, ".loom", "examples")
+	// Copy examples directory to loom data directory
+	examplesDestDir := filepath.Join(loomDataDir, "examples")
 	// Try to find the examples source directory
 	var examplesSourceDir string
 	possibleExamplesPaths := []string{
 		"examples",
 		filepath.Join(".", "examples"),
-		filepath.Join(os.Getenv("HOME"), "Projects", "loom", "examples"),
 		filepath.Join(filepath.Dir(os.Args[0]), "..", "examples"),
 	}
 	for _, path := range possibleExamplesPaths {
@@ -503,8 +499,8 @@ func runServe(cmd *cobra.Command, args []string) {
 		logger.Warn("Examples source not found, skipping copy")
 	}
 
-	// Copy default weaver agent to ~/.loom/agents/ (if not exists)
-	agentsDir := filepath.Join(homeDir, ".loom", "agents")
+	// Copy default weaver agent to loom data directory (if not exists)
+	agentsDir := filepath.Join(loomDataDir, "agents")
 	weaverDestPath := filepath.Join(agentsDir, "weaver.yaml")
 	if _, err := os.Stat(weaverDestPath); os.IsNotExist(err) {
 		// Get weaver from embedded files
@@ -513,7 +509,7 @@ func runServe(cmd *cobra.Command, args []string) {
 
 		// Write to destination
 		if err := os.WriteFile(weaverDestPath, weaverData, 0640); err != nil {
-			logger.Warn("Failed to copy weaver.yaml to ~/.loom/agents/", zap.Error(err))
+			logger.Warn("Failed to copy weaver.yaml to agents directory", zap.Error(err))
 		} else {
 			logger.Info("Weaver agent installed",
 				zap.String("source", "embedded"),
@@ -521,11 +517,11 @@ func runServe(cmd *cobra.Command, args []string) {
 				zap.Int("size", len(weaverData)))
 		}
 	} else {
-		logger.Debug("Weaver agent already exists at ~/.loom/agents/weaver.yaml")
+		logger.Debug("Weaver agent already exists", zap.String("path", weaverDestPath))
 	}
 
-	// Create agent guide in ~/.loom (visible to agents exploring .loom directory)
-	agentGuidePath := filepath.Join(homeDir, ".loom", "START_HERE.md")
+	// Create agent guide in loom data directory (visible to agents)
+	agentGuidePath := filepath.Join(loomDataDir, "START_HERE.md")
 	if _, err := os.Stat(agentGuidePath); os.IsNotExist(err) {
 		agentGuide := embedded.GetStartHere()
 		if err := os.WriteFile(agentGuidePath, agentGuide, 0640); err != nil {
@@ -737,8 +733,7 @@ func runServe(cmd *cobra.Command, args []string) {
 	{
 		toolDBPath := config.Database.Path + ".tools"
 		if config.Database.Path == "" {
-			homeDir, _ := os.UserHomeDir()
-			toolDBPath = homeDir + "/.loom/tools.db"
+			toolDBPath = filepath.Join(loomconfig.GetLoomDataDir(), "tools.db")
 		}
 
 		// Create builtin indexer
@@ -846,275 +841,272 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Also load agents from ~/.loom/agents/ directory (created by meta-agent)
 	// Keep registry alive for hot-reload
 	var registry *agent.Registry
-	homeDir, err = os.UserHomeDir()
-	if err == nil {
-		configDir := homeDir + "/.loom"
-		dbPath := config.Database.Path
-		if dbPath == "" {
-			dbPath = configDir + "/agents.db"
-		}
+	configDir := loomconfig.GetLoomDataDir()
+	dbPath := config.Database.Path
+	if dbPath == "" {
+		dbPath = filepath.Join(configDir, "agents.db")
+	}
 
-		// Create registry to load meta-agent generated configs
-		registry, err = agent.NewRegistry(agent.RegistryConfig{
-			ConfigDir:    configDir,
-			DBPath:       dbPath,
-			LLMProvider:  llmProvider,
-			Logger:       logger,
-			ToolRegistry: toolRegistry,
-		})
-		if err != nil {
-			logger.Warn("Failed to create agent registry", zap.Error(err))
+	// Create registry to load meta-agent generated configs
+	registry, err = agent.NewRegistry(agent.RegistryConfig{
+		ConfigDir:    configDir,
+		DBPath:       dbPath,
+		LLMProvider:  llmProvider,
+		Logger:       logger,
+		ToolRegistry: toolRegistry,
+	})
+	if err != nil {
+		logger.Warn("Failed to create agent registry", zap.Error(err))
+	} else {
+		ctx := context.Background()
+		if err := registry.LoadAgents(ctx); err != nil {
+			logger.Warn("Failed to load agents from registry", zap.Error(err))
 		} else {
-			ctx := context.Background()
-			if err := registry.LoadAgents(ctx); err != nil {
-				logger.Warn("Failed to load agents from registry", zap.Error(err))
-			} else {
-				// Get configs from registry
-				configs := registry.ListConfigs()
-				logger.Info("Found agents from ~/.loom/agents/", zap.Int("count", len(configs)))
+			// Get configs from registry
+			configs := registry.ListConfigs()
+			logger.Info("Found agents from ~/.loom/agents/", zap.Int("count", len(configs)))
 
-				// Create agents from loaded configs
-				for _, cfg := range configs {
-					if _, exists := agents[cfg.Name]; exists {
-						logger.Info("  Skipping agent (already loaded from looms.yaml)", zap.String("name", cfg.Name))
-						continue
+			// Create agents from loaded configs
+			for _, cfg := range configs {
+				if _, exists := agents[cfg.Name]; exists {
+					logger.Info("  Skipping agent (already loaded from looms.yaml)", zap.String("name", cfg.Name))
+					continue
+				}
+
+				logger.Info("  Loading agent from registry",
+					zap.String("name", cfg.Name),
+					zap.Int("system_prompt_len", len(cfg.SystemPrompt)))
+
+				// Load backend from backend_path if specified
+				var backend fabric.ExecutionBackend
+				if backendPath, ok := cfg.Metadata["backend_path"]; ok && backendPath != "" {
+					logger.Info("    Backend path", zap.String("path", backendPath))
+					backend, err = fabricfactory.LoadFromYAML(backendPath)
+					if err != nil {
+						logger.Warn("    Failed to load backend", zap.Error(err))
+						backend = &mockBackend{} // Fallback to mock
 					}
+				} else {
+					backend = &mockBackend{}
+				}
 
-					logger.Info("  Loading agent from registry",
-						zap.String("name", cfg.Name),
-						zap.Int("system_prompt_len", len(cfg.SystemPrompt)))
+				// Create memory instance for this agent
+				// All agents share the global session store (sessions are isolated by agent_id)
+				memory := agent.NewMemoryWithStore(store)
 
-					// Load backend from backend_path if specified
-					var backend fabric.ExecutionBackend
-					if backendPath, ok := cfg.Metadata["backend_path"]; ok && backendPath != "" {
-						logger.Info("    Backend path", zap.String("path", backendPath))
-						backend, err = fabricfactory.LoadFromYAML(backendPath)
-						if err != nil {
-							logger.Warn("    Failed to load backend", zap.Error(err))
-							backend = &mockBackend{} // Fallback to mock
-						}
+				// Configure memory compression if specified
+				if cfg.Memory != nil && cfg.Memory.MemoryCompression != nil {
+					profile, err := agent.ResolveCompressionProfile(cfg.Memory.MemoryCompression)
+					if err != nil {
+						logger.Warn("    Failed to resolve compression profile, using defaults",
+							zap.Error(err))
 					} else {
-						backend = &mockBackend{}
+						memory.SetCompressionProfile(&profile)
+						logger.Info("    Compression profile configured",
+							zap.String("profile", profile.Name),
+							zap.Int("max_l1", profile.MaxL1Messages),
+							zap.Int("warning_threshold", profile.WarningThresholdPercent))
 					}
+				}
 
-					// Create memory instance for this agent
-					// All agents share the global session store (sessions are isolated by agent_id)
-					memory := agent.NewMemoryWithStore(store)
-
-					// Configure memory compression if specified
-					if cfg.Memory != nil && cfg.Memory.MemoryCompression != nil {
-						profile, err := agent.ResolveCompressionProfile(cfg.Memory.MemoryCompression)
-						if err != nil {
-							logger.Warn("    Failed to resolve compression profile, using defaults",
-								zap.Error(err))
-						} else {
-							memory.SetCompressionProfile(&profile)
-							logger.Info("    Compression profile configured",
-								zap.String("profile", profile.Name),
-								zap.Int("max_l1", profile.MaxL1Messages),
-								zap.Int("warning_threshold", profile.WarningThresholdPercent))
-						}
+				// Set context limits on memory if specified
+				if cfg.Llm != nil {
+					if cfg.Llm.MaxContextTokens > 0 || cfg.Llm.ReservedOutputTokens > 0 {
+						memory.SetContextLimits(
+							int(cfg.Llm.MaxContextTokens),
+							int(cfg.Llm.ReservedOutputTokens))
 					}
+				}
 
-					// Set context limits on memory if specified
-					if cfg.Llm != nil {
-						if cfg.Llm.MaxContextTokens > 0 || cfg.Llm.ReservedOutputTokens > 0 {
-							memory.SetContextLimits(
-								int(cfg.Llm.MaxContextTokens),
-								int(cfg.Llm.ReservedOutputTokens))
-						}
+				// Inject tracer into memory for observability
+				memory.SetTracer(tracer)
+
+				// Create agent from config
+				agentOpts := []agent.Option{
+					agent.WithName(cfg.Name),
+					agent.WithTracer(tracer),
+					agent.WithMemory(memory),
+					agent.WithErrorStore(errorStore),
+					// Note: SharedMemory added via registry.SetSharedMemory() after it's created
+				}
+
+				if cfg.Description != "" {
+					agentOpts = append(agentOpts, agent.WithDescription(cfg.Description))
+				}
+
+				if cfg.SystemPrompt != "" {
+					agentOpts = append(agentOpts, agent.WithSystemPrompt(cfg.SystemPrompt))
+				}
+
+				// Create config from proto LLMConfig
+				// Set max_turns and max_tool_executions from behavior config if specified, otherwise use defaults
+				maxTurns := 25          // Default from pkg/agent/types.go:145
+				maxToolExecutions := 50 // Default from pkg/agent/types.go:146
+				if cfg.Behavior != nil {
+					if cfg.Behavior.MaxTurns > 0 {
+						maxTurns = int(cfg.Behavior.MaxTurns)
 					}
-
-					// Inject tracer into memory for observability
-					memory.SetTracer(tracer)
-
-					// Create agent from config
-					agentOpts := []agent.Option{
-						agent.WithName(cfg.Name),
-						agent.WithTracer(tracer),
-						agent.WithMemory(memory),
-						agent.WithErrorStore(errorStore),
-						// Note: SharedMemory added via registry.SetSharedMemory() after it's created
+					if cfg.Behavior.MaxToolExecutions > 0 {
+						maxToolExecutions = int(cfg.Behavior.MaxToolExecutions)
 					}
+				}
 
-					if cfg.Description != "" {
-						agentOpts = append(agentOpts, agent.WithDescription(cfg.Description))
+				agentCfg := &agent.Config{
+					Name:              cfg.Name,
+					Description:       cfg.Description,
+					SystemPrompt:      cfg.SystemPrompt,
+					Rom:               cfg.Rom,      // ROM identifier for domain-specific knowledge
+					Metadata:          cfg.Metadata, // Metadata includes backend_path for ROM auto-detection
+					MaxTurns:          maxTurns,
+					MaxToolExecutions: maxToolExecutions,
+					EnableTracing:     config.Observability.Enabled,
+				}
+
+				// Set context limits if specified in LLM config
+				if cfg.Llm != nil {
+					if cfg.Llm.MaxContextTokens > 0 {
+						agentCfg.MaxContextTokens = int(cfg.Llm.MaxContextTokens)
 					}
-
-					if cfg.SystemPrompt != "" {
-						agentOpts = append(agentOpts, agent.WithSystemPrompt(cfg.SystemPrompt))
+					if cfg.Llm.ReservedOutputTokens > 0 {
+						agentCfg.ReservedOutputTokens = int(cfg.Llm.ReservedOutputTokens)
 					}
+				}
 
-					// Create config from proto LLMConfig
-					// Set max_turns and max_tool_executions from behavior config if specified, otherwise use defaults
-					maxTurns := 25          // Default from pkg/agent/types.go:145
-					maxToolExecutions := 50 // Default from pkg/agent/types.go:146
-					if cfg.Behavior != nil {
-						if cfg.Behavior.MaxTurns > 0 {
-							maxTurns = int(cfg.Behavior.MaxTurns)
-						}
-						if cfg.Behavior.MaxToolExecutions > 0 {
-							maxToolExecutions = int(cfg.Behavior.MaxToolExecutions)
-						}
-					}
+				agentOpts = append(agentOpts, agent.WithConfig(agentCfg))
 
-					agentCfg := &agent.Config{
-						Name:              cfg.Name,
-						Description:       cfg.Description,
-						SystemPrompt:      cfg.SystemPrompt,
-						Rom:               cfg.Rom,      // ROM identifier for domain-specific knowledge
-						Metadata:          cfg.Metadata, // Metadata includes backend_path for ROM auto-detection
-						MaxTurns:          maxTurns,
-						MaxToolExecutions: maxToolExecutions,
-						EnableTracing:     config.Observability.Enabled,
-					}
+				// Add PermissionChecker if configured
+				if permissionChecker != nil {
+					agentOpts = append(agentOpts, agent.WithPermissionChecker(permissionChecker))
+				}
 
-					// Set context limits if specified in LLM config
-					if cfg.Llm != nil {
-						if cfg.Llm.MaxContextTokens > 0 {
-							agentCfg.MaxContextTokens = int(cfg.Llm.MaxContextTokens)
-						}
-						if cfg.Llm.ReservedOutputTokens > 0 {
-							agentCfg.ReservedOutputTokens = int(cfg.Llm.ReservedOutputTokens)
-						}
-					}
-
-					agentOpts = append(agentOpts, agent.WithConfig(agentCfg))
-
-					// Add PermissionChecker if configured
-					if permissionChecker != nil {
-						agentOpts = append(agentOpts, agent.WithPermissionChecker(permissionChecker))
-					}
-
-					// Determine LLM provider for this agent
-					// If agent has specific LLM config, use it; otherwise use server default
-					agentLLMProvider := llmProvider
-					if cfg.Llm != nil && cfg.Llm.Provider != "" {
-						logger.Info("    Agent has custom LLM configuration",
+				// Determine LLM provider for this agent
+				// If agent has specific LLM config, use it; otherwise use server default
+				agentLLMProvider := llmProvider
+				if cfg.Llm != nil && cfg.Llm.Provider != "" {
+					logger.Info("    Agent has custom LLM configuration",
+						zap.String("provider", cfg.Llm.Provider),
+						zap.String("model", cfg.Llm.Model))
+					customLLM, err := createLLMProviderFromProtoConfig(cfg.Llm, config, logger)
+					if err != nil {
+						logger.Warn("    Failed to create custom LLM provider, using server default",
+							zap.Error(err))
+						// Fall back to server default LLM
+					} else {
+						agentLLMProvider = customLLM
+						logger.Info("    Using custom LLM",
 							zap.String("provider", cfg.Llm.Provider),
 							zap.String("model", cfg.Llm.Model))
-						customLLM, err := createLLMProviderFromProtoConfig(cfg.Llm, config, logger)
-						if err != nil {
-							logger.Warn("    Failed to create custom LLM provider, using server default",
-								zap.Error(err))
-							// Fall back to server default LLM
+					}
+				} else {
+					logger.Info("    Using server default LLM")
+				}
+
+				ag := agent.NewAgent(backend, agentLLMProvider, agentOpts...)
+
+				// Always register shell_execute for all agents
+				shellTool := builtin.NewShellExecuteTool("")
+				ag.RegisterTool(shellTool)
+				logger.Info("    Auto-registered shell_execute tool")
+
+				// Register builtin tools if specified
+				if cfg.Tools != nil && len(cfg.Tools.Builtin) > 0 {
+					logger.Info("    Registering builtin tools", zap.Int("count", len(cfg.Tools.Builtin)))
+					for _, toolName := range cfg.Tools.Builtin {
+						// Skip tools that are registered automatically or through other mechanisms
+						skipTools := map[string]bool{
+							"shell_execute":                   true, // Auto-registered for all agents
+							"tool_search":                     true, // Auto-registered when tool registry available
+							"recall_conversation":             true, // Registered with memory/swap layer
+							"search_conversation":             true, // Registered with memory/swap layer
+							"get_tool_result":                 true, // Async tool result retrieval
+							"get_error_details":               true, // Error details retrieval
+							"delegate_to_agent":               true, // Coordination tool (registered elsewhere)
+							"send_message":                    true, // Communication tool (requires MessageQueue)
+							"receive_message":                 true, // Communication tool (requires MessageQueue)
+							"shared_memory_write":             true, // Communication tool (requires SharedMemoryStore)
+							"shared_memory_read":              true, // Communication tool (requires SharedMemoryStore)
+							"top_n_query":                     true, // Presentation tool
+							"group_by_query":                  true, // Presentation tool
+							"generate_visualization":          true, // Visualization tool
+							"generate_workflow_visualization": true, // Visualization tool
+						}
+						if skipTools[toolName] {
+							continue
+						}
+						// spawn_agent removed
+
+						tool := builtin.ByName(toolName)
+						if tool != nil {
+							ag.RegisterTool(tool)
+							logger.Info("      Tool registered", zap.String("name", toolName))
 						} else {
-							agentLLMProvider = customLLM
-							logger.Info("    Using custom LLM",
-								zap.String("provider", cfg.Llm.Provider),
-								zap.String("model", cfg.Llm.Model))
+							logger.Warn("      Unknown builtin tool", zap.String("name", toolName))
 						}
-					} else {
-						logger.Info("    Using server default LLM")
 					}
+				}
 
-					ag := agent.NewAgent(backend, agentLLMProvider, agentOpts...)
-
-					// Always register shell_execute for all agents
-					shellTool := builtin.NewShellExecuteTool("")
-					ag.RegisterTool(shellTool)
-					logger.Info("    Auto-registered shell_execute tool")
-
-					// Register builtin tools if specified
-					if cfg.Tools != nil && len(cfg.Tools.Builtin) > 0 {
-						logger.Info("    Registering builtin tools", zap.Int("count", len(cfg.Tools.Builtin)))
-						for _, toolName := range cfg.Tools.Builtin {
-							// Skip tools that are registered automatically or through other mechanisms
-							skipTools := map[string]bool{
-								"shell_execute":                   true, // Auto-registered for all agents
-								"tool_search":                     true, // Auto-registered when tool registry available
-								"recall_conversation":             true, // Registered with memory/swap layer
-								"search_conversation":             true, // Registered with memory/swap layer
-								"get_tool_result":                 true, // Async tool result retrieval
-								"get_error_details":               true, // Error details retrieval
-								"delegate_to_agent":               true, // Coordination tool (registered elsewhere)
-								"send_message":                    true, // Communication tool (requires MessageQueue)
-								"receive_message":                 true, // Communication tool (requires MessageQueue)
-								"shared_memory_write":             true, // Communication tool (requires SharedMemoryStore)
-								"shared_memory_read":              true, // Communication tool (requires SharedMemoryStore)
-								"top_n_query":                     true, // Presentation tool
-								"group_by_query":                  true, // Presentation tool
-								"generate_visualization":          true, // Visualization tool
-								"generate_workflow_visualization": true, // Visualization tool
-							}
-							if skipTools[toolName] {
-								continue
-							}
-							// spawn_agent removed
-
-							tool := builtin.ByName(toolName)
-							if tool != nil {
-								ag.RegisterTool(tool)
-								logger.Info("      Tool registered", zap.String("name", toolName))
+				// Register MCP tools if specified and MCP manager available
+				if cfg.Tools != nil && len(cfg.Tools.Mcp) > 0 && mcpManager != nil {
+					logger.Info("    Registering MCP tools", zap.Int("count", len(cfg.Tools.Mcp)))
+					ctx := context.Background()
+					for _, mcpConfig := range cfg.Tools.Mcp {
+						// Check if specific tools requested or all ("*")
+						if len(mcpConfig.Tools) == 1 && mcpConfig.Tools[0] == "*" {
+							// Register all tools from this MCP server
+							beforeCount := ag.ToolCount()
+							if err := ag.RegisterMCPServer(ctx, mcpManager.GetManager(), mcpConfig.Server); err != nil {
+								logger.Warn("      Failed to register MCP server",
+									zap.String("server", mcpConfig.Server),
+									zap.Error(err))
 							} else {
-								logger.Warn("      Unknown builtin tool", zap.String("name", toolName))
+								afterCount := ag.ToolCount()
+								toolsAdded := afterCount - beforeCount
+								logger.Info("      MCP server registered",
+									zap.String("server", mcpConfig.Server),
+									zap.String("tools", "all"),
+									zap.Int("tools_added", toolsAdded),
+									zap.Int("total_tools", afterCount))
 							}
-						}
-					}
-
-					// Register MCP tools if specified and MCP manager available
-					if cfg.Tools != nil && len(cfg.Tools.Mcp) > 0 && mcpManager != nil {
-						logger.Info("    Registering MCP tools", zap.Int("count", len(cfg.Tools.Mcp)))
-						ctx := context.Background()
-						for _, mcpConfig := range cfg.Tools.Mcp {
-							// Check if specific tools requested or all ("*")
-							if len(mcpConfig.Tools) == 1 && mcpConfig.Tools[0] == "*" {
-								// Register all tools from this MCP server
-								beforeCount := ag.ToolCount()
-								if err := ag.RegisterMCPServer(ctx, mcpManager.GetManager(), mcpConfig.Server); err != nil {
-									logger.Warn("      Failed to register MCP server",
+						} else {
+							// Register specific tools
+							for _, toolName := range mcpConfig.Tools {
+								if err := ag.RegisterMCPTool(ctx, mcpManager.GetManager(), mcpConfig.Server, toolName); err != nil {
+									logger.Warn("      Failed to register MCP tool",
 										zap.String("server", mcpConfig.Server),
+										zap.String("tool", toolName),
 										zap.Error(err))
 								} else {
-									afterCount := ag.ToolCount()
-									toolsAdded := afterCount - beforeCount
-									logger.Info("      MCP server registered",
+									logger.Info("      MCP tool registered",
 										zap.String("server", mcpConfig.Server),
-										zap.String("tools", "all"),
-										zap.Int("tools_added", toolsAdded),
-										zap.Int("total_tools", afterCount))
-								}
-							} else {
-								// Register specific tools
-								for _, toolName := range mcpConfig.Tools {
-									if err := ag.RegisterMCPTool(ctx, mcpManager.GetManager(), mcpConfig.Server, toolName); err != nil {
-										logger.Warn("      Failed to register MCP tool",
-											zap.String("server", mcpConfig.Server),
-											zap.String("tool", toolName),
-											zap.Error(err))
-									} else {
-										logger.Info("      MCP tool registered",
-											zap.String("server", mcpConfig.Server),
-											zap.String("tool", toolName))
-									}
+										zap.String("tool", toolName))
 								}
 							}
 						}
 					}
-
-					// Register tool_search and enable dynamic tool registration if tool registry available
-					if toolRegistry != nil {
-						searchTool := toolregistry.NewSearchTool(toolRegistry)
-						ag.RegisterTool(searchTool)
-						logger.Info("    Registered tool_search for dynamic discovery")
-
-						// Enable dynamic tool registration for discovered MCP tools
-						var mcpMgrAdapter shuttle.MCPManager
-						if mcpManager != nil {
-							mcpMgrAdapter = &mcpManagerAdapter{mgr: mcpManager.GetManager()}
-						}
-						ag.SetToolRegistryForDynamicDiscovery(toolRegistry, mcpMgrAdapter)
-						logger.Info("    Enabled dynamic tool registration")
-					}
-
-					agents[cfg.Name] = ag
-					logger.Info("    Agent loaded successfully",
-						zap.String("name", cfg.Name),
-						zap.Int("tool_count", ag.ToolCount()))
 				}
+
+				// Register tool_search and enable dynamic tool registration if tool registry available
+				if toolRegistry != nil {
+					searchTool := toolregistry.NewSearchTool(toolRegistry)
+					ag.RegisterTool(searchTool)
+					logger.Info("    Registered tool_search for dynamic discovery")
+
+					// Enable dynamic tool registration for discovered MCP tools
+					var mcpMgrAdapter shuttle.MCPManager
+					if mcpManager != nil {
+						mcpMgrAdapter = &mcpManagerAdapter{mgr: mcpManager.GetManager()}
+					}
+					ag.SetToolRegistryForDynamicDiscovery(toolRegistry, mcpMgrAdapter)
+					logger.Info("    Enabled dynamic tool registration")
+				}
+
+				agents[cfg.Name] = ag
+				logger.Info("    Agent loaded successfully",
+					zap.String("name", cfg.Name),
+					zap.Int("tool_count", ag.ToolCount()))
 			}
-			// DO NOT close registry - keep it alive for hot-reload
 		}
+		// DO NOT close registry - keep it alive for hot-reload
 	}
 
 	logger.Info("Total agents loaded", zap.Int("count", len(agents)))
@@ -1314,14 +1306,9 @@ func runServe(cmd *cobra.Command, args []string) {
 
 	// Inject MCP manager into multi-agent server if available
 	if mcpManager != nil {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			logger.Warn("Failed to get home directory for MCP config path", zap.Error(err))
-		} else {
-			configPath := filepath.Join(homeDir, ".loom", "looms.yaml")
-			loomService.SetMCPManager(mcpManager.GetManager(), configPath, logger)
-			logger.Info("MCP manager injected into multi-agent server")
-		}
+		configPath := filepath.Join(loomconfig.GetLoomDataDir(), "looms.yaml")
+		loomService.SetMCPManager(mcpManager.GetManager(), configPath, logger)
+		logger.Info("MCP manager injected into multi-agent server")
 	}
 
 	// Inject tool registry into multi-agent server for dynamic tool discovery
@@ -1479,12 +1466,12 @@ func runServe(cmd *cobra.Command, args []string) {
 
 		workflowDir := config.Scheduler.WorkflowDir
 		if workflowDir == "" {
-			workflowDir = filepath.Join(homeDir, ".loom", "workflows")
+			workflowDir = filepath.Join(loomconfig.GetLoomDataDir(), "workflows")
 		}
 
 		schedulerDBPath := config.Scheduler.DBPath
 		if schedulerDBPath == "" {
-			schedulerDBPath = filepath.Join(homeDir, ".loom", "scheduler.db")
+			schedulerDBPath = filepath.Join(loomconfig.GetLoomDataDir(), "scheduler.db")
 		}
 
 		// Create orchestrator for workflow execution

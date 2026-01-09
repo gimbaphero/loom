@@ -14,6 +14,10 @@ import (
 )
 
 func TestLoader_Load(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires tool_metadata directory in short mode")
+	}
+
 	// Get project root (3 levels up from pkg/shuttle/metadata)
 	projectRoot := filepath.Join("..", "..", "..")
 	metadataDir := filepath.Join(projectRoot, "tool_metadata")
@@ -99,6 +103,10 @@ func TestLoader_Load(t *testing.T) {
 }
 
 func TestLoader_LoadAll(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires tool_metadata directory in short mode")
+	}
+
 	// Get project root
 	projectRoot := filepath.Join("..", "..", "..")
 	metadataDir := filepath.Join(projectRoot, "tool_metadata")
@@ -133,6 +141,10 @@ func TestLoader_NonExistentDirectory(t *testing.T) {
 }
 
 func TestLoader_Caching(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping test that requires tool_metadata directory in short mode")
+	}
+
 	// Get project root
 	projectRoot := filepath.Join("..", "..", "..")
 	metadataDir := filepath.Join(projectRoot, "tool_metadata")

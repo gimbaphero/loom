@@ -72,6 +72,11 @@ just install
 # This installs:
 #   - Binaries to ~/.local/bin/ (looms, loom)
 #   - Patterns to ~/.loom/patterns/ (94 YAML patterns)
+#
+# Customize installation directories:
+#   export LOOM_BIN_DIR=/usr/local/bin  # Custom binary location
+#   export LOOM_DATA_DIR=/custom/loom   # Custom data directory
+#   just install
 
 # Or build only (for development)
 just build                # Minimal build (no optional dependencies)

@@ -16,16 +16,13 @@ package home
 
 import (
 	"os"
-	"path/filepath"
+
+	"github.com/teradata-labs/loom/pkg/config"
 )
 
 // Dir returns the loom home directory.
 func Dir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(home, ".loom"), nil
+	return config.GetLoomDataDir(), nil
 }
 
 // EnsureDir ensures the home directory exists.

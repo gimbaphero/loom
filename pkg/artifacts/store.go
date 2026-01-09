@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/teradata-labs/loom/pkg/config"
 	"github.com/teradata-labs/loom/pkg/observability"
 )
 
@@ -804,9 +805,5 @@ func ComputeChecksum(path string) (string, error) {
 
 // GetArtifactsDir returns the artifacts directory path.
 func GetArtifactsDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", fmt.Errorf("failed to get home directory: %w", err)
-	}
-	return filepath.Join(home, ".loom", "artifacts"), nil
+	return filepath.Join(config.GetLoomDataDir(), "artifacts"), nil
 }

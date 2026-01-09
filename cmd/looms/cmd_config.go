@@ -20,6 +20,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"github.com/zalando/go-keyring"
 	"golang.org/x/term"
 )
@@ -124,13 +125,7 @@ func init() {
 }
 
 func runConfigInit(cmd *cobra.Command, args []string) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	configDir := filepath.Join(home, ".loom")
+	configDir := loomconfig.GetLoomDataDir()
 	configPath := filepath.Join(configDir, "looms.yaml")
 
 	// Create directory if it doesn't exist
@@ -588,13 +583,7 @@ func runConfigSet(cmd *cobra.Command, args []string) {
 	value := args[1]
 
 	// Get config file path
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	configDir := filepath.Join(home, ".loom")
+	configDir := loomconfig.GetLoomDataDir()
 	configPath := filepath.Join(configDir, "looms.yaml")
 
 	// Check if config file exists
@@ -640,13 +629,7 @@ func runConfigGet(cmd *cobra.Command, args []string) {
 	key := args[0]
 
 	// Get config file path
-	home, err := os.UserHomeDir()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error getting home directory: %v\n", err)
-		os.Exit(1)
-	}
-
-	configDir := filepath.Join(home, ".loom")
+	configDir := loomconfig.GetLoomDataDir()
 	configPath := filepath.Join(configDir, "looms.yaml")
 
 	// Check if config file exists

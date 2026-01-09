@@ -27,6 +27,7 @@ import (
 	"github.com/go-acme/lego/v4/lego"
 	"github.com/go-acme/lego/v4/registration"
 	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 	"go.uber.org/zap"
 )
 
@@ -112,11 +113,7 @@ func NewLetsEncryptProvider(config *loomv1.LetsEncryptConfig) (*LetsEncryptProvi
 		config.HttpChallengePort = 80
 	}
 	if config.CacheDir == "" {
-		homeDir, err := os.UserHomeDir()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get home directory: %w", err)
-		}
-		config.CacheDir = filepath.Join(homeDir, ".loom", "certs")
+		config.CacheDir = filepath.Join(loomconfig.GetLoomDataDir(), "certs")
 	}
 	if config.RenewBeforeDays == 0 {
 		config.RenewBeforeDays = 30

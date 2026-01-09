@@ -21,6 +21,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/teradata-labs/loom/internal/version"
+	loomconfig "github.com/teradata-labs/loom/pkg/config"
 )
 
 var (
@@ -81,13 +82,8 @@ Support:
 	rootCmd.PersistentFlags().Int("max-tokens", 4096, "Maximum tokens per request")
 
 	// Database flags
-	home, _ := os.UserHomeDir()
-	// Allow override via LOOM_DATA_DIR environment variable
-	dataDir := os.Getenv("LOOM_DATA_DIR")
-	if dataDir == "" {
-		dataDir = filepath.Join(home, ".loom")
-	}
-	defaultDBPath := filepath.Join(dataDir, "loom.db")
+	// GetLoomDataDir respects LOOM_DATA_DIR environment variable
+	defaultDBPath := filepath.Join(loomconfig.GetLoomDataDir(), "loom.db")
 	rootCmd.PersistentFlags().String("db", defaultDBPath, "SQLite database path")
 
 	// Observability flags (enabled by default)

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/teradata-labs/loom/pkg/config"
 	"gopkg.in/yaml.v3"
 )
 
@@ -137,7 +138,7 @@ func validateWorkflowSemantics(content, filePath string) ([]ValidationError, []V
 				Field:    fmt.Sprintf("spec.agents[%s].agent", name),
 				Message:  fmt.Sprintf("Referenced agent file not found: %s", agentRef),
 				Expected: fmt.Sprintf("File: %s", agentPath),
-				Fix:      fmt.Sprintf("Create the agent file first: %s.yaml in ~/.loom/agents/", agentRef),
+				Fix:      fmt.Sprintf("Create the agent file first: %s.yaml in %s/agents/", agentRef, config.GetLoomDataDir()),
 			})
 		}
 	}
@@ -448,8 +449,7 @@ func getMapKeys(m map[string]string) []string {
 
 func resolveLoomDir(filePath string) string {
 	if filePath == "" {
-		homeDir, _ := os.UserHomeDir()
-		return filepath.Join(homeDir, ".loom")
+		return config.GetLoomDataDir()
 	}
 
 	// Extract .loom directory from file path
@@ -460,7 +460,6 @@ func resolveLoomDir(filePath string) string {
 		}
 	}
 
-	// Default
-	homeDir, _ := os.UserHomeDir()
-	return filepath.Join(homeDir, ".loom")
+	// Default to configured loom data directory
+	return config.GetLoomDataDir()
 }
