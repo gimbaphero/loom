@@ -272,6 +272,9 @@ func (rg *ReportGenerator) ExportHTML(report *Report) (string, error) {
 	sb.WriteString("\n        <script>\n")
 	for i, viz := range report.Visualizations {
 		chartID := fmt.Sprintf("chart-%d", i)
+		// Escape any </script> tags in the JSON to prevent XSS
+		safeConfig := strings.ReplaceAll(viz.EChartsConfig, "</script>", "<\\/script>")
+		safeConfig = strings.ReplaceAll(safeConfig, "</SCRIPT>", "<\\/SCRIPT>")
 		sb.WriteString(fmt.Sprintf(`
             (function() {
                 var chartDom = document.getElementById('%s');
@@ -282,7 +285,7 @@ func (rg *ReportGenerator) ExportHTML(report *Report) (string, error) {
                     myChart.resize();
                 });
             })();
-`, chartID, viz.EChartsConfig))
+`, chartID, safeConfig))
 	}
 	sb.WriteString("        </script>\n")
 

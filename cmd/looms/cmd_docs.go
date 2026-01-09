@@ -16,6 +16,7 @@ package main
 import (
 	"embed"
 	"fmt"
+	"html"
 	"io/fs"
 	"log"
 	"net/http"
@@ -196,7 +197,9 @@ func handleEdit(w http.ResponseWriter, r *http.Request) {
 
 	// Return success message
 	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprintf(w, `<html><body><h2>Opened in editor</h2><p>File: <code>%s</code></p><p><a href="javascript:history.back()">← Back to docs</a></p></body></html>`, sourcePath)
+	// Escape sourcePath to prevent XSS
+	escapedPath := html.EscapeString(sourcePath)
+	fmt.Fprintf(w, `<html><body><h2>Opened in editor</h2><p>File: <code>%s</code></p><p><a href="javascript:history.back()">← Back to docs</a></p></body></html>`, escapedPath)
 }
 
 // urlToSourceFile maps a Hugo URL path to the source markdown file
@@ -219,9 +222,29 @@ func urlToSourceFile(urlPath string) string {
 	// Also handle URLs that don't have /en/ prefix
 	urlPath = strings.TrimPrefix(urlPath, "docs/")
 
+	// Clean the path to remove any .. or . components (prevents path traversal)
+	urlPath = filepath.Clean(urlPath)
+
 	// Map to source file
 	// URL: guides/quickstart → website/content/en/docs/guides/quickstart.md
 	sourcePath := filepath.Join(cwd, "website", "content", "en", "docs", urlPath+".md")
+
+	// Security: Verify the resolved path is still within the expected directory
+	expectedBase := filepath.Join(cwd, "website", "content", "en", "docs")
+	resolvedPath, err := filepath.Abs(sourcePath)
+	if err != nil {
+		return ""
+	}
+	resolvedBase, err := filepath.Abs(expectedBase)
+	if err != nil {
+		return ""
+	}
+
+	// Check if the resolved path is within the expected base directory
+	if !strings.HasPrefix(resolvedPath, resolvedBase+string(filepath.Separator)) &&
+		resolvedPath != resolvedBase {
+		return "" // Path traversal attempt detected
+	}
 
 	// Verify file exists
 	if _, err := os.Stat(sourcePath); err != nil {
@@ -253,23 +276,25 @@ func injectEditButton(handler http.Handler, devMode bool) http.Handler {
 		handler.ServeHTTP(recorder, r)
 
 		// Inject edit button before closing </body> tag
-		html := recorder.body.String()
-		if strings.Contains(html, "</body>") {
+		htmlContent := recorder.body.String()
+		if strings.Contains(htmlContent, "</body>") {
+			// Escape the URL path to prevent XSS
+			escapedPath := html.EscapeString(r.URL.Path)
 			editButton := fmt.Sprintf(`
 <div style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;">
   <a href="/edit?page=%s" style="display: inline-block; padding: 12px 20px; background: #007bff; color: white; text-decoration: none; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); font-family: sans-serif; font-size: 14px; font-weight: 500;">
     ✏️ Edit This Page
   </a>
 </div>
-`, r.URL.Path)
-			html = strings.Replace(html, "</body>", editButton+"</body>", 1)
+`, escapedPath)
+			htmlContent = strings.Replace(htmlContent, "</body>", editButton+"</body>", 1)
 		}
 
 		// Write modified HTML
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(html)))
+		w.Header().Set("Content-Length", fmt.Sprintf("%d", len(htmlContent)))
 		w.WriteHeader(recorder.statusCode)
-		if _, err := w.Write([]byte(html)); err != nil {
+		if _, err := w.Write([]byte(htmlContent)); err != nil {
 			log.Printf("Failed to write response: %v", err)
 		}
 	})
