@@ -73,6 +73,7 @@ func validateAgentSemantics(content string) ([]ValidationError, []ValidationWarn
 }
 
 // validateWorkflowSemantics validates logical consistency for Workflow configs.
+// Handles both orchestration and multi-agent workflows.
 func validateWorkflowSemantics(content, filePath string) ([]ValidationError, []ValidationWarning) {
 	var errors []ValidationError
 	var warnings []ValidationWarning
@@ -86,6 +87,69 @@ func validateWorkflowSemantics(content, filePath string) ([]ValidationError, []V
 	if !hasSpec {
 		return errors, warnings // Structure error already caught
 	}
+
+	// Detect workflow type
+	workflowType := detectWorkflowType(spec)
+
+	switch workflowType {
+	case "orchestration":
+		// Validate orchestration workflow semantics
+		orchErrors, orchWarnings := validateOrchestrationSemantics(spec)
+		errors = append(errors, orchErrors...)
+		warnings = append(warnings, orchWarnings...)
+	case "multi-agent":
+		// Validate multi-agent workflow semantics
+		maErrors, maWarnings := validateMultiAgentSemantics(spec, filePath)
+		errors = append(errors, maErrors...)
+		warnings = append(warnings, maWarnings...)
+	}
+
+	// Validate common workflow config
+	if workflowConfig, ok := spec["config"].(map[string]interface{}); ok {
+		configWarnings := validateWorkflowConfig(workflowConfig)
+		warnings = append(warnings, configWarnings...)
+	}
+
+	return errors, warnings
+}
+
+// validateOrchestrationSemantics validates orchestration workflow semantics.
+func validateOrchestrationSemantics(spec map[string]interface{}) ([]ValidationError, []ValidationWarning) {
+	var errors []ValidationError
+	var warnings []ValidationWarning
+
+	// Get pattern/type
+	pattern := ""
+	if p, ok := spec["pattern"].(string); ok {
+		pattern = p
+	} else if t, ok := spec["type"].(string); ok {
+		pattern = t
+	}
+
+	// Pattern-specific validation
+	switch pattern {
+	case "debate":
+		debateErrors, debateWarnings := validateDebatePattern(spec)
+		errors = append(errors, debateErrors...)
+		warnings = append(warnings, debateWarnings...)
+	case "fork-join":
+		fjErrors, fjWarnings := validateForkJoinPattern(spec)
+		errors = append(errors, fjErrors...)
+		warnings = append(warnings, fjWarnings...)
+	case "pipeline":
+		pipeErrors, pipeWarnings := validatePipelinePattern(spec)
+		errors = append(errors, pipeErrors...)
+		warnings = append(warnings, pipeWarnings...)
+	// Add other patterns as needed
+	}
+
+	return errors, warnings
+}
+
+// validateMultiAgentSemantics validates multi-agent workflow semantics.
+func validateMultiAgentSemantics(spec map[string]interface{}, filePath string) ([]ValidationError, []ValidationWarning) {
+	var errors []ValidationError
+	var warnings []ValidationWarning
 
 	entrypoint, _ := spec["entrypoint"].(string)
 	agents, hasAgents := spec["agents"].([]interface{})
@@ -150,10 +214,83 @@ func validateWorkflowSemantics(content, filePath string) ([]ValidationError, []V
 		warnings = append(warnings, commWarnings...)
 	}
 
-	// Validate workflow config
+	return errors, warnings
+}
+
+// validateDebatePattern validates debate orchestration pattern.
+func validateDebatePattern(spec map[string]interface{}) ([]ValidationError, []ValidationWarning) {
+	var errors []ValidationError
+	var warnings []ValidationWarning
+
+	// Check for agents with debater role
+	agents, hasAgents := spec["agents"].([]interface{})
+	if !hasAgents || len(agents) < 2 {
+		errors = append(errors, ValidationError{
+			Level:    LevelSemantic,
+			Field:    "spec.agents",
+			Message:  "Debate pattern requires at least 2 agents with debater role",
+			Expected: "Array with at least 2 agent definitions",
+			Fix:      "Add at least 2 agents with role: debater",
+		})
+	}
+
+	// Check for rounds config
 	if config, ok := spec["config"].(map[string]interface{}); ok {
-		configWarnings := validateWorkflowConfig(config)
-		warnings = append(warnings, configWarnings...)
+		if rounds, ok := config["rounds"].(int); ok {
+			if rounds < 1 {
+				errors = append(errors, ValidationError{
+					Level:   LevelSemantic,
+					Field:   "spec.config.rounds",
+					Message: "Debate rounds must be at least 1",
+					Got:     fmt.Sprintf("%d", rounds),
+				})
+			}
+		}
+	}
+
+	return errors, warnings
+}
+
+// validateForkJoinPattern validates fork-join orchestration pattern.
+func validateForkJoinPattern(spec map[string]interface{}) ([]ValidationError, []ValidationWarning) {
+	var errors []ValidationError
+	var warnings []ValidationWarning
+
+	// Check for prompt or agent_ids
+	if prompt, ok := spec["prompt"].(string); !ok || prompt == "" {
+		warnings = append(warnings, ValidationWarning{
+			Field:   "spec.prompt",
+			Message: "Fork-join pattern typically requires a prompt field",
+			Fix:     "Add 'prompt' field with the query to distribute to agents",
+		})
+	}
+
+	if agentIDs, ok := spec["agent_ids"].([]interface{}); !ok || len(agentIDs) == 0 {
+		warnings = append(warnings, ValidationWarning{
+			Field:   "spec.agent_ids",
+			Message: "Fork-join pattern typically requires agent_ids",
+			Fix:     "Add 'agent_ids' array with agent identifiers",
+		})
+	}
+
+	return errors, warnings
+}
+
+// validatePipelinePattern validates pipeline orchestration pattern.
+func validatePipelinePattern(spec map[string]interface{}) ([]ValidationError, []ValidationWarning) {
+	var errors []ValidationError
+	var warnings []ValidationWarning
+
+	// Check for stages
+	stages, hasStages := spec["stages"].([]interface{})
+	if !hasStages || len(stages) == 0 {
+		errors = append(errors, ValidationError{
+			Level:    LevelSemantic,
+			Field:    "spec.stages",
+			Message:  "Pipeline pattern requires stages array",
+			Expected: "Array of stage definitions",
+			Fix:      "Add 'stages' array with at least one stage",
+		})
 	}
 
 	return errors, warnings

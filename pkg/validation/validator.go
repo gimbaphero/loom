@@ -210,6 +210,7 @@ func validateAgentStructure(content string) []ValidationError {
 }
 
 // validateWorkflowStructure validates workflow YAML structure.
+// Handles both orchestration workflows (pattern/type-based) and multi-agent workflows (entrypoint-based).
 func validateWorkflowStructure(content string) []ValidationError {
 	var errors []ValidationError
 	var data map[string]interface{}
@@ -277,29 +278,112 @@ func validateWorkflowStructure(content string) []ValidationError {
 			Level:    LevelStructure,
 			Field:    "spec",
 			Message:  "Missing required spec section",
-			Expected: "spec with entrypoint and agents",
+			Expected: "spec with workflow configuration",
 			Fix:      "Add spec section with workflow configuration",
 		})
-	} else {
-		if entrypoint, ok := spec["entrypoint"].(string); !ok || entrypoint == "" {
-			errors = append(errors, ValidationError{
-				Level:    LevelStructure,
-				Field:    "spec.entrypoint",
-				Message:  "Missing required field",
-				Expected: "Name of the entrypoint agent",
-				Fix:      "Add 'entrypoint: coordinator' (or your main agent name) under spec",
-			})
-		}
+		return errors
+	}
 
-		if agents, ok := spec["agents"].([]interface{}); !ok || len(agents) == 0 {
-			errors = append(errors, ValidationError{
-				Level:    LevelStructure,
-				Field:    "spec.agents",
-				Message:  "Missing or empty agents list",
-				Expected: "Array of agent definitions",
-				Fix:      "Add 'agents:' array with at least one agent under spec",
-			})
+	// Detect workflow type: orchestration (pattern/type) vs multi-agent (entrypoint)
+	workflowType := detectWorkflowType(spec)
+
+	switch workflowType {
+	case "orchestration":
+		// Orchestration workflows use pattern or type field
+		errors = append(errors, validateOrchestrationWorkflowStructure(spec)...)
+	case "multi-agent":
+		// Multi-agent workflows use entrypoint and agents
+		errors = append(errors, validateMultiAgentWorkflowStructure(spec)...)
+	default:
+		// Ambiguous - missing both pattern/type AND entrypoint
+		errors = append(errors, ValidationError{
+			Level:    LevelStructure,
+			Field:    "spec",
+			Message:  "Unable to determine workflow type",
+			Expected: "Either 'pattern/type' (orchestration) or 'entrypoint' (multi-agent)",
+			Fix:      "Add 'pattern: debate' for orchestration or 'entrypoint: coordinator' for multi-agent",
+		})
+	}
+
+	return errors
+}
+
+
+// validateOrchestrationWorkflowStructure validates structure for orchestration workflows.
+func validateOrchestrationWorkflowStructure(spec map[string]interface{}) []ValidationError {
+	var errors []ValidationError
+
+	// Check for pattern or type field
+	hasPattern := false
+	patternValue := ""
+
+	if pattern, ok := spec["pattern"].(string); ok && pattern != "" {
+		hasPattern = true
+		patternValue = pattern
+	}
+	if workflowType, ok := spec["type"].(string); ok && workflowType != "" {
+		hasPattern = true
+		patternValue = workflowType
+	}
+
+	if !hasPattern {
+		errors = append(errors, ValidationError{
+			Level:    LevelStructure,
+			Field:    "spec.pattern or spec.type",
+			Message:  "Missing required field for orchestration workflow",
+			Expected: "One of: pattern or type",
+			Fix:      "Add 'pattern: debate' or 'type: fork-join' under spec",
+		})
+		return errors
+	}
+
+	// Validate pattern/type value
+	validPatterns := []string{"debate", "fork-join", "pipeline", "parallel", "conditional", "iterative", "swarm"}
+	isValidPattern := false
+	for _, valid := range validPatterns {
+		if patternValue == valid {
+			isValidPattern = true
+			break
 		}
+	}
+
+	if !isValidPattern {
+		errors = append(errors, ValidationError{
+			Level:    LevelStructure,
+			Field:    "spec.pattern or spec.type",
+			Message:  fmt.Sprintf("Invalid workflow pattern: %s", patternValue),
+			Expected: fmt.Sprintf("One of: %v", validPatterns),
+			Fix:      "Use a supported orchestration pattern",
+		})
+	}
+
+	return errors
+}
+
+// validateMultiAgentWorkflowStructure validates structure for multi-agent workflows.
+func validateMultiAgentWorkflowStructure(spec map[string]interface{}) []ValidationError {
+	var errors []ValidationError
+
+	// Check for entrypoint
+	if entrypoint, ok := spec["entrypoint"].(string); !ok || entrypoint == "" {
+		errors = append(errors, ValidationError{
+			Level:    LevelStructure,
+			Field:    "spec.entrypoint",
+			Message:  "Missing required field",
+			Expected: "Name of the entrypoint agent",
+			Fix:      "Add 'entrypoint: coordinator' (or your main agent name) under spec",
+		})
+	}
+
+	// Check for agents list
+	if agents, ok := spec["agents"].([]interface{}); !ok || len(agents) == 0 {
+		errors = append(errors, ValidationError{
+			Level:    LevelStructure,
+			Field:    "spec.agents",
+			Message:  "Missing or empty agents list",
+			Expected: "Array of agent definitions",
+			Fix:      "Add 'agents:' array with at least one agent under spec",
+		})
 	}
 
 	return errors
