@@ -45,7 +45,7 @@ Loom is also a complete Go framework for building agent threads programmatically
 | **Judge Evaluation System** | Multi-judge evaluation with 6 aggregation strategies and streaming support |
 | **Learning Agents** | Self-improving agents with DSPy integration and pattern proposals |
 | **Multi-Agent Orchestration** | 6 workflow patterns for coordinating agent teams |
-| **Pattern Library** | 94 reusable YAML patterns across 17 domains |
+| **Pattern Library** | 90 reusable YAML patterns across 16 domains |
 | **8 LLM Providers** | Anthropic, Bedrock, Ollama, OpenAI, Azure OpenAI, Mistral, Gemini, HuggingFace |
 | **Multi-Modal** | Vision analysis (`analyze_image`) and document parsing (`parse_document`) |
 
@@ -83,12 +83,17 @@ just build-full          # Full build (with Hawk + Promptio)
 **What gets installed:**
 - `looms` - Multi-agent server with weaver and pattern hot-reload
 - `loom` - TUI client for connecting to agents
-- `~/.loom/patterns/` - 94 reusable patterns across 17 domains (SQL, Teradata, Postgres, text, code, debugging, vision, REST API, document processing, etc.)
+- `~/.loom/patterns/` - 90 reusable patterns across 16 domains (SQL, Teradata, Postgres, text, code, debugging, vision, REST API, document processing, etc.)
 
 **Alternative: Install from source**
 ```bash
+# Install latest tagged release
 go install github.com/teradata-labs/loom/cmd/loom@latest
 go install github.com/teradata-labs/loom/cmd/looms@latest
+
+# Or install from specific version
+go install github.com/teradata-labs/loom/cmd/loom@v1.0.0
+go install github.com/teradata-labs/loom/cmd/looms@v1.0.0
 
 # Note: You'll need to manually install patterns for the weaver to work
 just install-patterns
@@ -197,7 +202,7 @@ looms judge evaluate-stream \
 - Performance judges (efficiency, cost)
 - Custom judges (domain-specific criteria)
 
-See [Judge CLI Guide](https://teradata-tio.github.io/loom/en/docs/guides/judge_cli_guide/) and [Multi-Judge Evaluation](https://teradata-tio.github.io/loom/en/docs/guides/multi-judge-evaluation/).
+See [Judge CLI Guide](https://teradata-labs.github.io/loom/en/docs/guides/judge_cli_guide/) and [Multi-Judge Evaluation](https://teradata-labs.github.io/loom/en/docs/guides/multi-judge-evaluation/).
 
 ### Learning Agents
 
@@ -234,11 +239,11 @@ loom --thread weaver
 - Example-based learning
 - Metric-driven improvement
 
-See [Learning Agent Guide](https://teradata-tio.github.io/loom/en/docs/guides/learning-agent-guide/) and [Judge-DSPy Integration](https://teradata-tio.github.io/loom/en/docs/guides/judge-dspy-integration/).
+See [Learning Agent Guide](https://teradata-labs.github.io/loom/en/docs/guides/learning-agent-guide/) and [Judge-DSPy Integration](https://teradata-labs.github.io/loom/en/docs/guides/judge-dspy-integration/).
 
 ### Pattern Library
 
-94 reusable YAML patterns across 17 domains, installed to `~/.loom/patterns/` by default:
+90 reusable YAML patterns across 16 domains, installed to `~/.loom/patterns/` by default:
 
 | Domain | Patterns | Examples |
 |--------|----------|----------|
@@ -249,7 +254,6 @@ See [Learning Agent Guide](https://teradata-tio.github.io/loom/en/docs/guides/le
 | `fun/` | 5 | Entertainment patterns |
 | `prompt_engineering/` | 4 | Chain-of-thought, few-shot learning, structured output |
 | `documents/` | 4 | PDF extraction, Excel analysis, CSV import (legacy) |
-| `transcend/` | 4 | Internal Teradata patterns |
 | `document/` | 2 | Multi-format parsing, document analysis |
 | `code/` | 2 | Test generation, documentation generation |
 | `vision/` | 2 | Chart interpretation, form extraction |
@@ -416,7 +420,7 @@ When multiple agents are present in a conversation:
 +------------------+     +------------------+     +------------------+
 ```
 
-See [Architecture Guide](https://teradata-tio.github.io/loom/en/docs/architecture/) for detailed design.
+See [Architecture Guide](https://teradata-labs.github.io/loom/en/docs/architecture/) for detailed design.
 
 ---
 
@@ -424,19 +428,19 @@ See [Architecture Guide](https://teradata-tio.github.io/loom/en/docs/architectur
 
 ### Quick Links
 
-- [Getting Started Guide](https://teradata-tio.github.io/loom/en/docs/guides/quickstart/)
-- [Architecture Overview](https://teradata-tio.github.io/loom/en/docs/architecture/)
-- [Features Guide](https://teradata-tio.github.io/loom/en/docs/guides/features/)
+- [Getting Started Guide](https://teradata-labs.github.io/loom/en/docs/guides/quickstart/)
+- [Architecture Overview](https://teradata-labs.github.io/loom/en/docs/architecture/)
+- [Features Guide](https://teradata-labs.github.io/loom/en/docs/guides/features/)
 - [API Reference](https://pkg.go.dev/github.com/teradata-labs/loom)
 
 ### Guides
 
-- [Backend Implementation](https://teradata-tio.github.io/loom/en/docs/reference/backend/) - Implementing `ExecutionBackend`
-- [Pattern System](https://teradata-tio.github.io/loom/en/docs/reference/patterns/) - Creating and using patterns
-- [Observability Setup](https://teradata-tio.github.io/loom/en/docs/guides/integration/observability/) - Hawk integration
-- [Prompt Management](https://teradata-tio.github.io/loom/en/docs/guides/integration/prompt-integration/) - Promptio integration
-- [Streaming](https://teradata-tio.github.io/loom/en/docs/reference/streaming/) - Real-time progress events
-- [Meta-Agent Usage](https://teradata-tio.github.io/loom/en/docs/guides/meta-agent-usage/) - Advanced weaver usage
+- [Backend Implementation](https://teradata-labs.github.io/loom/en/docs/reference/backend/) - Implementing `ExecutionBackend`
+- [Pattern System](https://teradata-labs.github.io/loom/en/docs/reference/patterns/) - Creating and using patterns
+- [Observability Setup](https://teradata-labs.github.io/loom/en/docs/guides/integration/observability/) - Hawk integration
+- [Prompt Management](https://teradata-labs.github.io/loom/en/docs/guides/integration/prompt-integration/) - Promptio integration
+- [Streaming](https://teradata-labs.github.io/loom/en/docs/reference/streaming/) - Real-time progress events
+- [Meta-Agent Usage](https://teradata-labs.github.io/loom/en/docs/guides/meta-agent-usage/) - Advanced weaver usage
 
 ### Examples
 
