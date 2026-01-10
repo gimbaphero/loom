@@ -19,10 +19,10 @@ import (
 	"encoding/json"
 	"testing"
 
-	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
-	"github.com/teradata-labs/loom/pkg/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
+	"github.com/teradata-labs/loom/pkg/storage"
 )
 
 // TestProgressiveDisclosure_LargeJSONArray tests the full progressive disclosure workflow
@@ -102,7 +102,7 @@ func TestProgressiveDisclosure_LargeJSONArray(t *testing.T) {
 	// Step 3: Agent analyzes preview and decides to query for high scores
 	queryResult, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT name, score FROM results WHERE CAST(score AS REAL) >= 90 ORDER BY CAST(score AS REAL) DESC LIMIT 10",
+		"sql":          "SELECT name, score FROM results WHERE CAST(score AS REAL) >= 90 ORDER BY CAST(score AS REAL) DESC LIMIT 10",
 	})
 	require.NoError(t, err)
 
@@ -181,7 +181,7 @@ func TestProgressiveDisclosure_CSVPagination(t *testing.T) {
 	// Step 3: Paginate through results (first 10 rows)
 	queryResult, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT * FROM results LIMIT 10",
+		"sql":          "SELECT * FROM results LIMIT 10",
 	})
 	require.NoError(t, err)
 
@@ -198,7 +198,7 @@ func TestProgressiveDisclosure_CSVPagination(t *testing.T) {
 	// Step 4: Get next page (offset 10, limit 10)
 	queryResult2, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT * FROM results LIMIT 10 OFFSET 10",
+		"sql":          "SELECT * FROM results LIMIT 10 OFFSET 10",
 	})
 	require.NoError(t, err)
 
@@ -308,7 +308,7 @@ func TestProgressiveDisclosure_SQLFiltering(t *testing.T) {
 	// Test 1: Filter by category
 	result1, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT category, value FROM results WHERE category = 'A'",
+		"sql":          "SELECT category, value FROM results WHERE category = 'A'",
 	})
 	require.NoError(t, err)
 
@@ -320,7 +320,7 @@ func TestProgressiveDisclosure_SQLFiltering(t *testing.T) {
 	// Test 2: Filter by value range
 	result2, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT category, value FROM results WHERE CAST(value AS REAL) >= 30",
+		"sql":          "SELECT category, value FROM results WHERE CAST(value AS REAL) >= 30",
 	})
 	require.NoError(t, err)
 
@@ -332,7 +332,7 @@ func TestProgressiveDisclosure_SQLFiltering(t *testing.T) {
 	// Test 3: Complex filter
 	result3, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT category, value FROM results WHERE category IN ('A', 'B') AND CAST(value AS REAL) > 15",
+		"sql":          "SELECT category, value FROM results WHERE category IN ('A', 'B') AND CAST(value AS REAL) > 15",
 	})
 	require.NoError(t, err)
 
@@ -379,7 +379,7 @@ func TestProgressiveDisclosure_MultipleQueries(t *testing.T) {
 	// Query 1: Get high scores
 	result1, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT * FROM results WHERE CAST(score AS REAL) >= 80",
+		"sql":          "SELECT * FROM results WHERE CAST(score AS REAL) >= 80",
 	})
 	require.NoError(t, err)
 	require.True(t, result1.Success)
@@ -388,7 +388,7 @@ func TestProgressiveDisclosure_MultipleQueries(t *testing.T) {
 	// Query 2: Get low scores
 	result2, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT * FROM results WHERE CAST(score AS REAL) < 60",
+		"sql":          "SELECT * FROM results WHERE CAST(score AS REAL) < 60",
 	})
 	require.NoError(t, err)
 	require.True(t, result2.Success)
@@ -397,7 +397,7 @@ func TestProgressiveDisclosure_MultipleQueries(t *testing.T) {
 	// Query 3: Get count
 	result3, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
-		"sql":    "SELECT COUNT(*) as total FROM results",
+		"sql":          "SELECT COUNT(*) as total FROM results",
 	})
 	require.NoError(t, err)
 	require.True(t, result3.Success)

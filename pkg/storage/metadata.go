@@ -44,7 +44,7 @@ type SchemaInfo struct {
 	ItemCount  int64       // Number of items in array or rows in table
 	Fields     []FieldInfo // For JSON objects
 	Columns    []string    // For CSV/tabular data
-	SampleItem any // Representative sample
+	SampleItem any         // Representative sample
 }
 
 // FieldInfo describes a field in JSON data.

@@ -19,20 +19,20 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/teradata-labs/loom/pkg/storage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/teradata-labs/loom/pkg/storage"
 )
 
 func TestConvertJSONArrayToRows_ValidData(t *testing.T) {
 	tool := &QueryToolResultTool{}
 
 	tests := []struct {
-		name           string
-		jsonData       string
-		expectedCols   []string
-		expectedRows   int
-		validateFirst  func(t *testing.T, row []any)
+		name          string
+		jsonData      string
+		expectedCols  []string
+		expectedRows  int
+		validateFirst func(t *testing.T, row []any)
 	}{
 		{
 			name: "simple objects",
@@ -41,8 +41,8 @@ func TestConvertJSONArrayToRows_ValidData(t *testing.T) {
 				{"id": 2, "name": "Bob", "score": 87.0},
 				{"id": 3, "name": "Charlie", "score": 92.5}
 			]`,
-			expectedCols:  []string{"id", "name", "score"},
-			expectedRows:  3,
+			expectedCols: []string{"id", "name", "score"},
+			expectedRows: 3,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, float64(1), row[0])
 				assert.Equal(t, "Alice", row[1])
@@ -55,13 +55,13 @@ func TestConvertJSONArrayToRows_ValidData(t *testing.T) {
 				{"str": "text", "num": 42, "bool": true, "null": null},
 				{"str": "more", "num": 100, "bool": false, "null": null}
 			]`,
-			expectedCols:  []string{"bool", "null", "num", "str"}, // Sorted alphabetically
-			expectedRows:  2,
+			expectedCols: []string{"bool", "null", "num", "str"}, // Sorted alphabetically
+			expectedRows: 2,
 			validateFirst: func(t *testing.T, row []any) {
-				assert.Equal(t, true, row[0])   // bool
-				assert.Nil(t, row[1])           // null
+				assert.Equal(t, true, row[0])        // bool
+				assert.Nil(t, row[1])                // null
 				assert.Equal(t, float64(42), row[2]) // num
-				assert.Equal(t, "text", row[3]) // str
+				assert.Equal(t, "text", row[3])      // str
 			},
 		},
 		{
@@ -71,8 +71,8 @@ func TestConvertJSONArrayToRows_ValidData(t *testing.T) {
 				{"id": 2, "score": 95.5},
 				{"name": "Charlie", "score": 92.5}
 			]`,
-			expectedCols:  []string{"id", "name"}, // Only columns from first item
-			expectedRows:  3,
+			expectedCols: []string{"id", "name"}, // Only columns from first item
+			expectedRows: 3,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, float64(1), row[0]) // id
 				assert.Equal(t, "Alice", row[1])    // name
@@ -161,8 +161,8 @@ func TestConvertCSVToRows_ValidData(t *testing.T) {
 1,Alice,95
 2,Bob,87
 3,Charlie,92`,
-			expectedCols:  []string{"id", "name", "score"},
-			expectedRows:  3,
+			expectedCols: []string{"id", "name", "score"},
+			expectedRows: 3,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, "1", row[0])
 				assert.Equal(t, "Alice", row[1])
@@ -174,8 +174,8 @@ func TestConvertCSVToRows_ValidData(t *testing.T) {
 			csvData: `id,name,description
 1,"Alice Smith","A software engineer"
 2,"Bob Jones","A data scientist"`,
-			expectedCols:  []string{"id", "name", "description"},
-			expectedRows:  2,
+			expectedCols: []string{"id", "name", "description"},
+			expectedRows: 2,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, "1", row[0])
 				// Note: The simple CSV parser doesn't unquote values
@@ -189,8 +189,8 @@ func TestConvertCSVToRows_ValidData(t *testing.T) {
 1,Alice,
 2,,87
 ,Charlie,92`,
-			expectedCols:  []string{"id", "name", "score"},
-			expectedRows:  3,
+			expectedCols: []string{"id", "name", "score"},
+			expectedRows: 3,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, "1", row[0])
 				assert.Equal(t, "Alice", row[1])
@@ -201,8 +201,8 @@ func TestConvertCSVToRows_ValidData(t *testing.T) {
 			name: "single row",
 			csvData: `id,name,score
 1,Alice,95`,
-			expectedCols:  []string{"id", "name", "score"},
-			expectedRows:  1,
+			expectedCols: []string{"id", "name", "score"},
+			expectedRows: 1,
 			validateFirst: func(t *testing.T, row []any) {
 				assert.Equal(t, "1", row[0])
 			},
