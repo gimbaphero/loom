@@ -6,7 +6,9 @@
 package visualization
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -272,9 +274,13 @@ func (rg *ReportGenerator) ExportHTML(report *Report) (string, error) {
 	sb.WriteString("\n        <script>\n")
 	for i, viz := range report.Visualizations {
 		chartID := fmt.Sprintf("chart-%d", i)
-		// Escape any </script> tags in the JSON to prevent XSS
-		safeConfig := strings.ReplaceAll(viz.EChartsConfig, "</script>", "<\\/script>")
-		safeConfig = strings.ReplaceAll(safeConfig, "</SCRIPT>", "<\\/SCRIPT>")
+
+		// Escape JSON for safe embedding in HTML/JavaScript using json.HTMLEscape
+		// This handles quotes, <, >, &, and other characters that could break context
+		var escapedConfig bytes.Buffer
+		json.HTMLEscape(&escapedConfig, []byte(viz.EChartsConfig))
+		safeConfig := escapedConfig.String()
+
 		// Escape chartID for safe use in JavaScript string (prevent quote injection)
 		// CRITICAL: Escape backslashes BEFORE quotes to avoid double-escaping
 		safeChartID := strings.ReplaceAll(chartID, "\\", "\\\\")
