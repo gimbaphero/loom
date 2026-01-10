@@ -275,6 +275,9 @@ func (rg *ReportGenerator) ExportHTML(report *Report) (string, error) {
 		// Escape any </script> tags in the JSON to prevent XSS
 		safeConfig := strings.ReplaceAll(viz.EChartsConfig, "</script>", "<\\/script>")
 		safeConfig = strings.ReplaceAll(safeConfig, "</SCRIPT>", "<\\/SCRIPT>")
+		// Escape chartID for safe use in JavaScript string (prevent quote injection)
+		safeChartID := strings.ReplaceAll(chartID, "'", "\\'")
+		safeChartID = strings.ReplaceAll(safeChartID, "\\", "\\\\")
 		sb.WriteString(fmt.Sprintf(`
             (function() {
                 var chartDom = document.getElementById('%s');
@@ -285,7 +288,7 @@ func (rg *ReportGenerator) ExportHTML(report *Report) (string, error) {
                     myChart.resize();
                 });
             })();
-`, chartID, safeConfig))
+`, safeChartID, safeConfig))
 	}
 	sb.WriteString("        </script>\n")
 

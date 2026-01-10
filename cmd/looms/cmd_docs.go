@@ -246,12 +246,12 @@ func urlToSourceFile(urlPath string) string {
 		return "" // Path traversal attempt detected
 	}
 
-	// Verify file exists
-	if _, err := os.Stat(sourcePath); err != nil {
+	// Verify file exists using the validated resolved path
+	if _, err := os.Stat(resolvedPath); err != nil {
 		return ""
 	}
 
-	return sourcePath
+	return resolvedPath
 }
 
 // DEVELOPMENT ONLY: injectEditButton wraps HTTP handler to inject edit buttons
