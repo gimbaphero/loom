@@ -132,9 +132,10 @@ func (e *Executor) Execute(ctx context.Context, toolName string, params map[stri
 		// (executor timing is authoritative)
 		result.ExecutionTimeMs = duration.Milliseconds()
 
-		// Handle large results EXCEPT for get_tool_result which retrieves large data
-		// Wrapping get_tool_result output creates infinite recursion: get_tool_result → DataRef → get_tool_result → DataRef → ...
-		if toolName != "get_tool_result" {
+		// Handle large results EXCEPT for progressive disclosure tools which retrieve already-stored large data
+		// Wrapping these outputs creates infinite recursion: query_tool_result → DataRef A → query_tool_result(A) → DataRef B → ...
+		// Excluded tools: get_tool_result (metadata), query_tool_result (actual data retrieval)
+		if toolName != "get_tool_result" && toolName != "query_tool_result" {
 			if err := e.handleLargeResult(result); err != nil {
 				// Log error but don't fail execution
 				// The result is still valid, just not optimized
