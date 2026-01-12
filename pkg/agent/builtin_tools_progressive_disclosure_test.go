@@ -474,33 +474,28 @@ func TestProgressiveDisclosure_JSONObject(t *testing.T) {
 	assert.Equal(t, "application/json", metadata["content_type"])
 
 	// Step 3: Agent calls query_tool_result WITHOUT any parameters
-	// This should work for json_object types (no offset/limit needed)
+	// This should FAIL for json_object types - they cannot be retrieved directly (too large)
 	queryResult, err := queryTool.Execute(ctx, map[string]any{
 		"reference_id": ref.Id,
 	})
 	require.NoError(t, err)
 
-	require.True(t, queryResult.Success, "query_tool_result should succeed for json_object without parameters")
+	// Should fail with helpful error message
+	require.False(t, queryResult.Success, "query_tool_result should fail for json_object without retrieval method")
+	require.NotNil(t, queryResult.Error)
+	assert.Equal(t, "invalid_input", queryResult.Error.Code)
+	assert.Contains(t, queryResult.Error.Message, "json_object")
+	assert.Contains(t, queryResult.Error.Suggestion, "get_tool_result")
 
-	// Verify full object is returned
-	resultData, ok := queryResult.Data.(map[string]any)
-	require.True(t, ok, "result should be a map")
-
-	// Check structure matches original
-	assert.Equal(t, "Teradata 17.20.00.08", resultData["database_version"])
-
-	toolsList, ok := resultData["tools_available"].([]interface{})
-	require.True(t, ok)
-	assert.Len(t, toolsList, 3)
-
-	connInfo, ok := resultData["connection_info"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, "localhost", connInfo["host"])
-
-	features, ok := resultData["features"].(map[string]interface{})
-	require.True(t, ok)
-	assert.Equal(t, true, features["query_banding"])
-	assert.Equal(t, false, features["temporal"])
+	// Verify metadata provides helpful hints about the structure
+	// Agent should use the preview and schema from get_tool_result instead
+	retrievalHints := metadata["retrieval_hints"]
+	require.NotNil(t, retrievalHints)
+	// Check that hints warn about large object (if hints provided)
+	hintsStr := fmt.Sprintf("%v", retrievalHints)
+	if len(hintsStr) > 2 { // More than just "[]"
+		assert.Contains(t, hintsStr, "cannot be retrieved directly")
+	}
 }
 
 // TestProgressiveDisclosure_JSONObjectVsArray tests the distinction between
@@ -516,7 +511,7 @@ func TestProgressiveDisclosure_JSONObjectVsArray(t *testing.T) {
 
 	queryTool := NewQueryToolResultTool(nil, memoryStore)
 
-	// Test 1: JSON object should work without parameters
+	// Test 1: JSON object should fail without retrieval method
 	objData := map[string]any{"key": "value", "count": float64(42)}
 	objJSON, _ := json.Marshal(objData)
 	objRef, _ := memoryStore.Store("obj", objJSON, "application/json", nil)
@@ -525,9 +520,10 @@ func TestProgressiveDisclosure_JSONObjectVsArray(t *testing.T) {
 		"reference_id": objRef.Id,
 	})
 	require.NoError(t, err)
-	assert.True(t, objResult.Success, "json_object should work without parameters")
+	assert.False(t, objResult.Success, "json_object should fail without retrieval method")
+	assert.Contains(t, objResult.Error.Message, "json_object", "error should mention data type")
 
-	// Test 2: JSON array requires offset/limit or SQL
+	// Test 2: JSON array also requires offset/limit or SQL
 	arrayData := []map[string]any{{"id": float64(1)}, {"id": float64(2)}}
 	arrayJSON, _ := json.Marshal(arrayData)
 	arrayRef, _ := memoryStore.Store("array", arrayJSON, "application/json", nil)
@@ -537,7 +533,8 @@ func TestProgressiveDisclosure_JSONObjectVsArray(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.False(t, arrayResult.Success, "json_array should require parameters")
-	assert.Contains(t, arrayResult.Error.Message, "offset", "error should mention pagination requirement")
+	assert.Contains(t, arrayResult.Error.Message, "json_array", "error should mention data type")
+	assert.Contains(t, arrayResult.Error.Suggestion, "get_tool_result", "error should suggest checking metadata")
 
 	// Test 3: JSON array works with offset/limit
 	arrayResult2, err := queryTool.Execute(ctx, map[string]any{

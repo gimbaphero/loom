@@ -351,6 +351,25 @@ func generateRetrievalHints(meta *storage.DataMetadata) []string {
 	hints := []string{}
 
 	switch meta.DataType {
+	case "json_object":
+		// json_object doesn't support direct retrieval - data is too large for context
+		// Agent should understand structure from schema/preview and extract needed fields
+		hints = append(hints,
+			"⚠️ Large json_object cannot be retrieved directly",
+			"💡 Review the preview and schema to understand structure",
+		)
+		if meta.Schema != nil && len(meta.Schema.Fields) > 0 {
+			fieldNames := make([]string, 0, len(meta.Schema.Fields))
+			for _, field := range meta.Schema.Fields {
+				fieldNames = append(fieldNames, field.Name)
+			}
+			hints = append(hints, fmt.Sprintf("📋 Available fields: %s", strings.Join(fieldNames, ", ")))
+		}
+		// Add warning about size
+		if meta.SizeBytes > 100000 { // >100KB
+			hints = append(hints, fmt.Sprintf("⚠️ Object size: %d bytes - too large for context window", meta.SizeBytes))
+		}
+
 	case "json_array":
 		hints = append(hints,
 			fmt.Sprintf("💡 Use query_tool_result(reference_id='%s', offset=0, limit=100) for pagination", meta.ID),
@@ -634,41 +653,13 @@ func (t *QueryToolResultTool) queryMemoryData(ctx context.Context, refID string,
 		return t.paginateData(ref, meta, input)
 	}
 
-	// Handle json_object types - return full object (no pagination needed)
-	if meta.DataType == "json_object" {
-		data, err := t.memoryStore.Get(ref)
-		if err != nil {
-			return &shuttle.Result{
-				Success: false,
-				Error: &shuttle.Error{
-					Code:    "retrieval_failed",
-					Message: fmt.Sprintf("Failed to retrieve data: %v", err),
-				},
-			}, nil
-		}
-
-		var obj map[string]interface{}
-		if err := json.Unmarshal(data, &obj); err != nil {
-			return &shuttle.Result{
-				Success: false,
-				Error: &shuttle.Error{
-					Code:    "parse_failed",
-					Message: fmt.Sprintf("Failed to parse JSON object: %v", err),
-				},
-			}, nil
-		}
-
-		return &shuttle.Result{
-			Success: true,
-			Data:    obj,
-		}, nil
-	}
-
+	// No valid query method provided
 	return &shuttle.Result{
 		Success: false,
 		Error: &shuttle.Error{
-			Code:    "invalid_input",
-			Message: "Must provide 'offset'/'limit' for pagination (SQL support coming soon)",
+			Code:       "invalid_input",
+			Message:    fmt.Sprintf("Data type '%s' requires specific query method", meta.DataType),
+			Suggestion: "Check get_tool_result metadata for supported retrieval methods",
 		},
 	}, nil
 }

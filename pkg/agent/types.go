@@ -92,6 +92,9 @@ type Agent struct {
 	// Reference tracker for automatic cleanup of shared memory references when sessions end
 	refTracker *storage.SessionReferenceTracker
 
+	// SQL result store for queryable large SQL results
+	sqlResultStore *storage.SQLResultStore
+
 	// Token counter for accurate token estimation
 	tokenCounter *TokenCounter
 }

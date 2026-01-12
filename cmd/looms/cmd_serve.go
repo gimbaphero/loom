@@ -1965,7 +1965,14 @@ func runServe(cmd *cobra.Command, args []string) {
 		sigch := make(chan os.Signal, 1)
 		signal.Notify(sigch, os.Interrupt, syscall.SIGTERM)
 		<-sigch
-		logger.Info("Shutting down gracefully...")
+		logger.Info("Shutting down gracefully... (press Ctrl+C again to force)")
+
+		// Start a goroutine to listen for second Ctrl+C (force shutdown)
+		go func() {
+			<-sigch
+			logger.Warn("Force shutdown requested")
+			os.Exit(1)
+		}()
 
 		// Stop message queue monitor first (prevents new work from starting)
 		cancelMonitor()
@@ -2056,14 +2063,18 @@ func runServe(cmd *cobra.Command, args []string) {
 
 		// Stop TLS manager
 		if tlsManager != nil {
+			logger.Info("Stopping TLS manager...")
 			ctx := context.Background()
 			if err := tlsManager.Stop(ctx); err != nil {
 				logger.Warn("Error stopping TLS manager", zap.Error(err))
+			} else {
+				logger.Info("TLS manager stopped")
 			}
 		}
 
-		// Graceful stop with timeout (30 seconds max)
+		// Graceful stop with timeout (10 seconds max)
 		// After timeout, force stop to prevent hanging indefinitely
+		logger.Info("Stopping gRPC server (waiting for active RPCs to complete)...")
 		done := make(chan struct{})
 		go func() {
 			grpcServer.GracefulStop()
@@ -2073,10 +2084,12 @@ func runServe(cmd *cobra.Command, args []string) {
 		select {
 		case <-done:
 			logger.Info("gRPC server stopped gracefully")
-		case <-time.After(30 * time.Second):
-			logger.Warn("gRPC server graceful stop timeout, forcing shutdown")
+		case <-time.After(10 * time.Second):
+			logger.Warn("gRPC server graceful stop timeout after 10s, forcing shutdown")
 			grpcServer.Stop() // Force stop
 		}
+
+		logger.Info("Shutdown complete")
 	}()
 
 	if err := grpcServer.Serve(lis); err != nil {

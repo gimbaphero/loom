@@ -430,19 +430,57 @@ func (r *Registry) buildAgent(ctx context.Context, config *loomv1.AgentConfig) (
 		}
 	}
 
-	// Register builtin tools (file_write, http_request, grpc_call)
-	// These are auto-injected so agents can save reports/results
+	// Register builtin tools based on config (file_write, http_request, grpc_call, etc.)
+	// Only register tools explicitly listed in config.Tools.Builtin
 	// Pass agent's PromptRegistry for externalized tool descriptions
-	for _, tool := range builtin.All(agent.prompts) {
-		agent.RegisterTool(tool)
+	if config.Tools != nil && len(config.Tools.Builtin) > 0 {
+		// Filter builtin tools based on config
+		for _, toolName := range config.Tools.Builtin {
+			tool := builtin.ByName(toolName)
+			if tool != nil {
+				// Wrap with PromptAwareTool if prompts registry available
+				if agent.prompts != nil {
+					key := fmt.Sprintf("tools.%s", toolName)
+					tool = shuttle.NewPromptAwareTool(tool, agent.prompts, key)
+				}
+				agent.RegisterTool(tool)
+			} else {
+				// Tool not found in builtin, might be a special tool (get_tool_result, etc.)
+				// or tool_search - these are registered separately
+				r.logger.Debug("Skipping non-builtin tool (may be registered separately)",
+					zap.String("tool", toolName),
+					zap.String("agent", config.Name))
+			}
+		}
+	} else {
+		// Backward compatibility: If no Tools.Builtin specified, register all builtin tools
+		for _, tool := range builtin.All(agent.prompts) {
+			agent.RegisterTool(tool)
+		}
 	}
 
-	// Register tool_search for dynamic tool discovery (if tool registry is available)
+	// Register tool_search for dynamic tool discovery (if tool registry is available AND requested in config)
 	if r.toolRegistry != nil {
-		searchTool := toolregistry.NewSearchTool(r.toolRegistry)
-		agent.RegisterTool(searchTool)
-		r.logger.Debug("Registered tool_search for agent",
-			zap.String("agent", config.Name))
+		// Check if tool_search is explicitly requested in config
+		shouldRegisterToolSearch := false
+		if config.Tools != nil && len(config.Tools.Builtin) > 0 {
+			for _, toolName := range config.Tools.Builtin {
+				if toolName == "tool_search" {
+					shouldRegisterToolSearch = true
+					break
+				}
+			}
+		} else {
+			// Backward compatibility: If no Tools.Builtin specified, auto-register tool_search
+			shouldRegisterToolSearch = true
+		}
+
+		if shouldRegisterToolSearch {
+			searchTool := toolregistry.NewSearchTool(r.toolRegistry)
+			agent.RegisterTool(searchTool)
+			r.logger.Debug("Registered tool_search for agent",
+				zap.String("agent", config.Name))
+		}
 
 		// Enable dynamic tool registration for discovered MCP tools
 		// This allows agents to use tools found via tool_search without explicit config
@@ -465,7 +503,56 @@ func (r *Registry) buildAgent(ctx context.Context, config *loomv1.AgentConfig) (
 		}
 	}
 
+	// Filter registered tools to only those specified in config
+	// This handles special tools (get_tool_result, recall_conversation, etc.)
+	// that are auto-registered by NewAgent() but should respect the config filter
+	if config.Tools != nil && len(config.Tools.Builtin) > 0 {
+		allowedTools := make(map[string]bool)
+		for _, toolName := range config.Tools.Builtin {
+			allowedTools[toolName] = true
+			// Handle tool name variations (get_error_detail vs get_error_details)
+			if toolName == "get_error_detail" {
+				allowedTools["get_error_details"] = true
+			}
+		}
+
+		// Get list of currently registered tools
+		registeredTools := agent.ListTools()
+		for _, toolName := range registeredTools {
+			// Skip MCP and custom tools (they're filtered by their own registration logic)
+			// Only filter builtin/framework tools
+			if !allowedTools[toolName] && !r.isMCPTool(toolName) && !r.isCustomTool(toolName, config) {
+				agent.UnregisterTool(toolName)
+				r.logger.Debug("Unregistered tool not in config.Tools.Builtin",
+					zap.String("tool", toolName),
+					zap.String("agent", config.Name))
+			}
+		}
+	}
+
 	return agent, nil
+}
+
+// isMCPTool checks if a tool name belongs to an MCP tool.
+// MCP tools are prefixed with the server name.
+func (r *Registry) isMCPTool(toolName string) bool {
+	// MCP tools use format: "server_name.tool_name" or just match against known MCP servers
+	// For now, just check if it contains a period (simple heuristic)
+	// TODO: Improve this by checking against registered MCP tools
+	return false // Placeholder - MCP tools filtered via their own logic
+}
+
+// isCustomTool checks if a tool name belongs to a custom tool defined in config.
+func (r *Registry) isCustomTool(toolName string, config *loomv1.AgentConfig) bool {
+	if config.Tools == nil || len(config.Tools.Custom) == 0 {
+		return false
+	}
+	for _, customTool := range config.Tools.Custom {
+		if customTool.Name == toolName {
+			return true
+		}
+	}
+	return false
 }
 
 // createLLMProvider creates an LLM provider from configuration

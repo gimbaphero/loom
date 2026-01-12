@@ -77,10 +77,23 @@ func (s *SharedMemoryStore) GetMetadata(ref *loomv1.DataReference) (*DataMetadat
 	contentType, dataType := detectDataType(data)
 	schema, preview := analyzeData(data, dataType)
 
-	// Get creation time from reference or use zero time
-	createdAt := time.Unix(0, ref.StoredAt*int64(time.Millisecond))
-	if createdAt.IsZero() {
-		createdAt = time.Now()
+	// Get creation time - look up from actual SharedData if ref.StoredAt is missing (epoch zero)
+	// This fixes the issue where query_tool_result creates minimal DataReference without StoredAt
+	var createdAt time.Time
+	if ref.StoredAt > 0 {
+		createdAt = time.Unix(0, ref.StoredAt*int64(time.Millisecond))
+	} else {
+		// StoredAt not provided in reference - look up from SharedData
+		s.mu.RLock()
+		if sharedData, exists := s.data[ref.Id]; exists {
+			createdAt = sharedData.StoredAt
+		}
+		s.mu.RUnlock()
+
+		// If still zero (shouldn't happen), use current time
+		if createdAt.IsZero() {
+			createdAt = time.Now()
+		}
 	}
 
 	// Calculate expiration (use TTL if available)

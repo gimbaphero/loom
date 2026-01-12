@@ -184,7 +184,7 @@ func (s *SharedMemoryStore) Store(id string, data []byte, contentType string, me
 		Metadata:    metadata,
 		StoredAt:    now,
 		AccessedAt:  now,
-		RefCount:    1,
+		RefCount:    0, // Initialize to 0 - will be incremented by PinForSession() to prevent eviction
 	}
 
 	// Add to LRU
@@ -258,7 +258,6 @@ func (s *SharedMemoryStore) Get(ref *loomv1.DataReference) ([]byte, error) {
 	// Update access time and move to front of LRU
 	sharedData.AccessedAt = time.Now()
 	s.lruList.MoveToFront(sharedData.lruElement)
-	atomic.AddInt32(&sharedData.RefCount, 1)
 	s.hits.Add(1)
 
 	// Decompress if needed
@@ -267,6 +266,17 @@ func (s *SharedMemoryStore) Get(ref *loomv1.DataReference) ([]byte, error) {
 	}
 
 	return sharedData.Data, nil
+}
+
+// IncrementRefCount increments the reference count for a data chunk.
+// Used by SessionReferenceTracker to pin references and prevent eviction.
+func (s *SharedMemoryStore) IncrementRefCount(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sharedData, exists := s.data[id]; exists {
+		atomic.AddInt32(&sharedData.RefCount, 1)
+	}
 }
 
 // Release decrements the reference count for a data chunk.

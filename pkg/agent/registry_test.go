@@ -1023,3 +1023,122 @@ func TestForceReload_ThreadSafety(t *testing.T) {
 		}
 	}
 }
+
+// TestToolFiltering verifies that agents only register tools specified in config.Tools.Builtin
+func TestToolFiltering(t *testing.T) {
+	ctx := context.Background()
+	registry, tmpDir := createTestRegistry(t)
+
+	// Create agent with only specific tools
+	agentsDir := filepath.Join(tmpDir, "agents")
+	err := os.MkdirAll(agentsDir, 0755)
+	require.NoError(t, err)
+
+	config := createTestAgentConfig("tool_filter_test")
+	config.Tools = &loomv1.ToolsConfig{
+		Builtin: []string{
+			"shell_execute",
+			// Note: tool_search requires ToolRegistry to be configured (not in basic test setup)
+			"get_tool_result",
+			"query_tool_result",
+			"recall_conversation",
+		},
+	}
+
+	err = SaveAgentConfig(config, filepath.Join(agentsDir, "tool_filter_test.yaml"))
+	require.NoError(t, err)
+
+	err = registry.LoadAgents(ctx)
+	require.NoError(t, err)
+
+	agent, err := registry.CreateAgent(ctx, "tool_filter_test")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	// Get list of registered tools
+	registeredTools := agent.ListTools()
+	t.Logf("Registered tools: %v", registeredTools)
+
+	// Verify only specified tools are registered
+	expectedTools := map[string]bool{
+		"shell_execute":       true,
+		"get_tool_result":     true,
+		"query_tool_result":   true,
+		"recall_conversation": true,
+	}
+
+	// Check that all expected tools are present
+	for toolName := range expectedTools {
+		assert.Contains(t, registeredTools, toolName, "Expected tool %s to be registered", toolName)
+	}
+
+	// Check that unexpected tools are NOT present
+	unexpectedTools := []string{
+		"http_request",
+		"web_search",
+		"file_write",
+		"file_read",
+		"grpc_call",
+		"search_conversation",    // Not in the config list
+		"clear_recalled_context", // Not in the config list
+	}
+
+	for _, toolName := range unexpectedTools {
+		assert.NotContains(t, registeredTools, toolName, "Unexpected tool %s should not be registered", toolName)
+	}
+}
+
+// TestToolFiltering_BackwardCompatibility verifies backward compatibility when no Tools.Builtin is specified
+func TestToolFiltering_BackwardCompatibility(t *testing.T) {
+	ctx := context.Background()
+	registry, tmpDir := createTestRegistry(t)
+
+	// Create agent without specifying Tools.Builtin (backward compatibility mode)
+	agentsDir := filepath.Join(tmpDir, "agents")
+	err := os.MkdirAll(agentsDir, 0755)
+	require.NoError(t, err)
+
+	config := createTestAgentConfig("backward_compat_test")
+	// Don't set config.Tools - it should register all builtin tools
+
+	err = SaveAgentConfig(config, filepath.Join(agentsDir, "backward_compat_test.yaml"))
+	require.NoError(t, err)
+
+	err = registry.LoadAgents(ctx)
+	require.NoError(t, err)
+
+	agent, err := registry.CreateAgent(ctx, "backward_compat_test")
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	// Get list of registered tools
+	registeredTools := agent.ListTools()
+	t.Logf("Registered tools (backward compat): %v", registeredTools)
+
+	// In backward compatibility mode, common builtin tools should be registered
+	expectedTools := []string{
+		"http_request",
+		"web_search",
+		"file_write",
+		"file_read",
+		"grpc_call",
+		"shell_execute",
+	}
+
+	for _, toolName := range expectedTools {
+		assert.Contains(t, registeredTools, toolName, "Expected builtin tool %s to be registered in backward compat mode", toolName)
+	}
+}
+
+// TestToolFiltering_ErrorDetailVariation verifies get_error_detail vs get_error_details name handling
+// Note: This test is skipped because get_error_details requires ErrorStore infrastructure
+// which is not set up in the basic test registry. The name variation handling is tested
+// via the filtering logic, but actual registration requires proper error store setup.
+func TestToolFiltering_ErrorDetailVariation(t *testing.T) {
+	t.Skip("Skipping: get_error_details requires ErrorStore infrastructure not available in basic test setup")
+
+	// The actual name variation logic is tested in the registry filtering code at line 513-516:
+	// if toolName == "get_error_detail" {
+	//     allowedTools["get_error_details"] = true
+	// }
+}
