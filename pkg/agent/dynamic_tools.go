@@ -24,6 +24,7 @@ import (
 	"github.com/teradata-labs/loom/pkg/mcp/manager"
 	"github.com/teradata-labs/loom/pkg/mcp/protocol"
 	"github.com/teradata-labs/loom/pkg/shuttle"
+	"github.com/teradata-labs/loom/pkg/storage"
 	"go.uber.org/zap"
 )
 
@@ -44,10 +45,12 @@ import (
 //	tool, err := discovery.Search(ctx, "read file")
 //	// Finds "filesystem:read_file" by matching "read" and "file"
 type DynamicToolDiscovery struct {
-	mcpMgr *manager.Manager
-	logger *zap.Logger
-	cache  map[string]shuttle.Tool // Intent → Tool cache
-	mu     sync.RWMutex
+	mcpMgr       *manager.Manager
+	logger       *zap.Logger
+	cache        map[string]shuttle.Tool // Intent → Tool cache
+	mu           sync.RWMutex
+	sqlStore     *storage.SQLResultStore  // For storing large SQL results
+	sharedMemory *storage.SharedMemoryStore // For storing other large data
 }
 
 // NewDynamicToolDiscovery creates a new dynamic tool discovery system.
@@ -57,10 +60,22 @@ func NewDynamicToolDiscovery(mcpMgr *manager.Manager, logger *zap.Logger) *Dynam
 	}
 
 	return &DynamicToolDiscovery{
-		mcpMgr: mcpMgr,
-		logger: logger,
-		cache:  make(map[string]shuttle.Tool),
+		mcpMgr:       mcpMgr,
+		logger:       logger,
+		cache:        make(map[string]shuttle.Tool),
+		sqlStore:     nil, // Will be set by SetSQLResultStore if needed
+		sharedMemory: nil, // Will be set by SetSharedMemory if needed
 	}
+}
+
+// SetSQLResultStore configures SQL result store for dynamically discovered tools.
+func (d *DynamicToolDiscovery) SetSQLResultStore(store *storage.SQLResultStore) {
+	d.sqlStore = store
+}
+
+// SetSharedMemory configures shared memory store for dynamically discovered tools.
+func (d *DynamicToolDiscovery) SetSharedMemory(store *storage.SharedMemoryStore) {
+	d.sharedMemory = store
 }
 
 // Search finds a tool matching the user intent using simple text search.
@@ -111,19 +126,27 @@ func (d *DynamicToolDiscovery) Search(ctx context.Context, intent string) (shutt
 		for _, tool := range tools {
 			if d.matches(intent, tool) {
 				// Found a match! Convert to shuttle.Tool
-				shuttleTool := adapter.NewMCPToolAdapter(client, tool, serverName)
+				mcpAdapter := adapter.NewMCPToolAdapter(client, tool, serverName)
+
+				// CRITICAL: Inject storage backends for progressive disclosure
+				if d.sqlStore != nil {
+					mcpAdapter.SetSQLResultStore(d.sqlStore)
+				}
+				if d.sharedMemory != nil {
+					mcpAdapter.SetSharedMemory(d.sharedMemory)
+				}
 
 				// Cache for future use
 				d.mu.Lock()
-				d.cache[intent] = shuttleTool
+				d.cache[intent] = mcpAdapter
 				d.mu.Unlock()
 
 				d.logger.Info("Dynamically discovered tool",
 					zap.String("intent", intent),
-					zap.String("tool", shuttleTool.Name()),
+					zap.String("tool", mcpAdapter.Name()),
 					zap.String("server", serverName))
 
-				return shuttleTool, nil
+				return mcpAdapter, nil
 			}
 		}
 	}
@@ -156,8 +179,17 @@ func (d *DynamicToolDiscovery) SearchMultiple(ctx context.Context, intent string
 		// Find all matches
 		for _, tool := range tools {
 			if d.matches(intent, tool) {
-				shuttleTool := adapter.NewMCPToolAdapter(client, tool, serverName)
-				matchingTools = append(matchingTools, shuttleTool)
+				mcpAdapter := adapter.NewMCPToolAdapter(client, tool, serverName)
+
+				// CRITICAL: Inject storage backends for progressive disclosure
+				if d.sqlStore != nil {
+					mcpAdapter.SetSQLResultStore(d.sqlStore)
+				}
+				if d.sharedMemory != nil {
+					mcpAdapter.SetSharedMemory(d.sharedMemory)
+				}
+
+				matchingTools = append(matchingTools, mcpAdapter)
 			}
 		}
 	}
@@ -259,6 +291,15 @@ func (a *Agent) EnableDynamicDiscovery(mcpMgr *manager.Manager) {
 
 	// Initialize dynamic discovery with MCP manager
 	a.dynamicDiscovery = NewDynamicToolDiscovery(mcpMgr, logger)
+
+	// CRITICAL: Inject storage backends for progressive disclosure
+	// This ensures dynamically discovered tools can detect and store SQL results properly
+	if a.sqlResultStore != nil {
+		a.dynamicDiscovery.SetSQLResultStore(a.sqlResultStore)
+	}
+	if a.sharedMemory != nil {
+		a.dynamicDiscovery.SetSharedMemory(a.sharedMemory)
+	}
 
 	// Log enablement
 	if a.config != nil && a.config.Name != "" {
