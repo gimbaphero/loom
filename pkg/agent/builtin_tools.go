@@ -659,7 +659,7 @@ func (t *QueryToolResultTool) queryMemoryData(ctx context.Context, refID string,
 		Error: &shuttle.Error{
 			Code:       "invalid_input",
 			Message:    fmt.Sprintf("Data type '%s' requires specific query method", meta.DataType),
-			Suggestion: "Check get_tool_result metadata for supported retrieval methods",
+			Suggestion: "Check the tool result metadata and retrieval hints for supported query methods (e.g., offset/limit for text, sql for SQL results)",
 		},
 	}, nil
 }
@@ -919,7 +919,7 @@ func (t *QueryToolResultTool) paginateData(ref *loomv1.DataReference, meta *stor
 			Error: &shuttle.Error{
 				Code:       "invalid_data_type",
 				Message:    fmt.Sprintf("Pagination only supports json_array and text, got %s", meta.DataType),
-				Suggestion: "Check get_tool_result metadata for supported query methods",
+				Suggestion: "Check the tool result metadata and retrieval hints for supported query methods",
 			},
 		}, nil
 	}

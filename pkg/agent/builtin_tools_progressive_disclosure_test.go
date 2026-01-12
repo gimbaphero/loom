@@ -485,7 +485,8 @@ func TestProgressiveDisclosure_JSONObject(t *testing.T) {
 	require.NotNil(t, queryResult.Error)
 	assert.Equal(t, "invalid_input", queryResult.Error.Code)
 	assert.Contains(t, queryResult.Error.Message, "json_object")
-	assert.Contains(t, queryResult.Error.Suggestion, "get_tool_result")
+	assert.Contains(t, queryResult.Error.Suggestion, "metadata", "error should suggest checking metadata")
+	assert.Contains(t, queryResult.Error.Suggestion, "retrieval hints", "error should mention retrieval hints")
 
 	// Verify metadata provides helpful hints about the structure
 	// Agent should use the preview and schema from get_tool_result instead
@@ -534,7 +535,8 @@ func TestProgressiveDisclosure_JSONObjectVsArray(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, arrayResult.Success, "json_array should require parameters")
 	assert.Contains(t, arrayResult.Error.Message, "json_array", "error should mention data type")
-	assert.Contains(t, arrayResult.Error.Suggestion, "get_tool_result", "error should suggest checking metadata")
+	assert.Contains(t, arrayResult.Error.Suggestion, "metadata", "error should suggest checking metadata")
+	assert.Contains(t, arrayResult.Error.Suggestion, "retrieval hints", "error should mention retrieval hints")
 
 	// Test 3: JSON array works with offset/limit
 	arrayResult2, err := queryTool.Execute(ctx, map[string]any{
