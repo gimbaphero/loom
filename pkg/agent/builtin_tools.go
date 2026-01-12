@@ -368,8 +368,12 @@ func generateRetrievalHints(meta *storage.DataMetadata) []string {
 
 	case "text":
 		hints = append(hints,
-			fmt.Sprintf("💡 Text data (%d bytes) - consider using grep/awk to filter before retrieval", meta.SizeBytes),
+			fmt.Sprintf("💡 Use query_tool_result(reference_id='%s', offset=0, limit=100) for line-based pagination", meta.ID),
+			fmt.Sprintf("💡 Total lines: %d - paginate to avoid loading all at once", meta.Schema.ItemCount),
 		)
+		if meta.Schema != nil && meta.Schema.ItemCount > 1000 {
+			hints = append(hints, "⚠️ Large text file - use pagination to avoid context blowout")
+		}
 	}
 
 	return hints
@@ -436,6 +440,11 @@ For JSON arrays (MEMORY/DISK location):
 - SQL queries: sql="SELECT * FROM results WHERE field > value" (auto-converts to SQLite table)
 - Nested objects stored as JSON strings
 
+For plain text (MEMORY/DISK location):
+- Line-based pagination: offset=0, limit=100
+- Returns array of lines with line numbers
+- Use for log files, large text documents, configuration files
+
 For CSV data:
 - SQL queries: sql="SELECT * FROM results WHERE column = 'value'" (auto-converts to SQLite table)
 - First row treated as headers
@@ -449,7 +458,8 @@ Examples:
 - JSON object: query_tool_result(reference_id="ref_123")
 - SQL on JSON: query_tool_result(reference_id="ref_123", sql="SELECT * FROM results WHERE score > 90")
 - SQL on CSV: query_tool_result(reference_id="ref_123", sql="SELECT COUNT(*) FROM results GROUP BY category")
-- Pagination: query_tool_result(reference_id="ref_123", offset=0, limit=100)
+- JSON array pagination: query_tool_result(reference_id="ref_123", offset=0, limit=100)
+- Text pagination: query_tool_result(reference_id="ref_123", offset=0, limit=50)
 - Aggregate: query_tool_result(reference_id="ref_123", sql="SELECT AVG(score) FROM results")`
 }
 
@@ -620,7 +630,7 @@ func (t *QueryToolResultTool) queryMemoryData(ctx context.Context, refID string,
 	}
 
 	if _, hasOffset := input["offset"]; hasOffset {
-		// Simple pagination for JSON arrays
+		// Simple pagination for JSON arrays and text
 		return t.paginateData(ref, meta, input)
 	}
 
@@ -882,7 +892,7 @@ func sortStringSlice(s []string) {
 	}
 }
 
-// paginateData implements simple pagination for JSON arrays.
+// paginateData implements simple pagination for JSON arrays and plain text.
 func (t *QueryToolResultTool) paginateData(ref *loomv1.DataReference, meta *storage.DataMetadata, input map[string]interface{}) (*shuttle.Result, error) {
 	// Get full data
 	data, err := t.memoryStore.Get(ref)
@@ -896,18 +906,36 @@ func (t *QueryToolResultTool) paginateData(ref *loomv1.DataReference, meta *stor
 		}, nil
 	}
 
-	// Parse as JSON array
-	if meta.DataType != "json_array" {
+	// Extract pagination parameters
+	offset := 0
+	if o, ok := input["offset"].(float64); ok {
+		offset = int(o)
+	}
+	limit := 100 // default
+	if l, ok := input["limit"].(float64); ok {
+		limit = int(l)
+	}
+
+	// Handle based on data type
+	switch meta.DataType {
+	case "json_array":
+		return t.paginateJSONArray(data, offset, limit)
+	case "text":
+		return t.paginateText(data, offset, limit)
+	default:
 		return &shuttle.Result{
 			Success: false,
 			Error: &shuttle.Error{
 				Code:       "invalid_data_type",
-				Message:    fmt.Sprintf("Pagination only supports json_array, got %s", meta.DataType),
+				Message:    fmt.Sprintf("Pagination only supports json_array and text, got %s", meta.DataType),
 				Suggestion: "Check get_tool_result metadata for supported query methods",
 			},
 		}, nil
 	}
+}
 
+// paginateJSONArray paginates JSON array data by items.
+func (t *QueryToolResultTool) paginateJSONArray(data []byte, offset, limit int) (*shuttle.Result, error) {
 	var items []interface{}
 	if err := json.Unmarshal(data, &items); err != nil {
 		return &shuttle.Result{
@@ -920,15 +948,6 @@ func (t *QueryToolResultTool) paginateData(ref *loomv1.DataReference, meta *stor
 	}
 
 	// Apply pagination
-	offset := 0
-	if o, ok := input["offset"].(float64); ok {
-		offset = int(o)
-	}
-	limit := 100 // default
-	if l, ok := input["limit"].(float64); ok {
-		limit = int(l)
-	}
-
 	if offset < 0 || offset >= len(items) {
 		return &shuttle.Result{
 			Success: false,
@@ -955,6 +974,44 @@ func (t *QueryToolResultTool) paginateData(ref *loomv1.DataReference, meta *stor
 			"returned_count": len(paginatedItems),
 			"total_count":    len(items),
 			"has_more":       end < len(items),
+		},
+	}, nil
+}
+
+// paginateText paginates plain text data by lines.
+func (t *QueryToolResultTool) paginateText(data []byte, offset, limit int) (*shuttle.Result, error) {
+	// Split into lines
+	text := string(data)
+	lines := strings.Split(text, "\n")
+
+	// Apply pagination
+	if offset < 0 || offset >= len(lines) {
+		return &shuttle.Result{
+			Success: false,
+			Error: &shuttle.Error{
+				Code:    "invalid_offset",
+				Message: fmt.Sprintf("Offset %d out of range (0-%d)", offset, len(lines)-1),
+			},
+		}, nil
+	}
+
+	end := offset + limit
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	paginatedLines := lines[offset:end]
+
+	// Return as array of lines for easier processing
+	return &shuttle.Result{
+		Success: true,
+		Data: map[string]interface{}{
+			"lines":          paginatedLines,
+			"offset":         offset,
+			"limit":          limit,
+			"returned_count": len(paginatedLines),
+			"total_lines":    len(lines),
+			"has_more":       end < len(lines),
 		},
 	}, nil
 }

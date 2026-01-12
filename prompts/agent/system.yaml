@@ -41,6 +41,7 @@ prompts:
       - For JSON objects (discovery results, metadata): query_tool_result(reference_id) with NO parameters
       - For SQL results: query_tool_result with SQL query to filter
       - For JSON arrays: query_tool_result with offset/limit to paginate
+      - For text files (logs, documents): query_tool_result with offset/limit to paginate by lines
       - Always retrieve ONLY what you need for the task
 
       Example 1 (JSON object - discovery result):
@@ -134,6 +135,7 @@ prompts:
       - For JSON objects (discovery results, metadata): query_tool_result(reference_id) with NO parameters
       - For SQL results: query_tool_result with SQL query to filter
       - For JSON arrays: query_tool_result with offset/limit to paginate
+      - For text files (logs, documents): query_tool_result with offset/limit to paginate by lines
       - Always retrieve ONLY what you need for the task
 
       Example 1 (JSON object - discovery result):

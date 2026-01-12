@@ -17,6 +17,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -545,4 +547,97 @@ func TestProgressiveDisclosure_JSONObjectVsArray(t *testing.T) {
 	})
 	require.NoError(t, err)
 	assert.True(t, arrayResult2.Success, "json_array should work with offset/limit")
+}
+
+// TestProgressiveDisclosure_TextPagination tests line-based pagination for plain text data
+func TestProgressiveDisclosure_TextPagination(t *testing.T) {
+	ctx := context.Background()
+
+	memoryStore := storage.NewSharedMemoryStore(&storage.Config{
+		MaxMemoryBytes:       10 * 1024 * 1024,
+		CompressionThreshold: 1024 * 1024,
+		TTLSeconds:           3600,
+	})
+
+	getMetadataTool := NewGetToolResultTool(memoryStore, nil)
+	queryTool := NewQueryToolResultTool(nil, memoryStore)
+
+	// Create test text data (100 lines)
+	var lines []string
+	for i := 1; i <= 100; i++ {
+		lines = append(lines, fmt.Sprintf("Line %d: This is test content for line number %d", i, i))
+	}
+	textData := []byte(strings.Join(lines, "\n"))
+
+	// Store text data
+	ref, err := memoryStore.Store("test_text", textData, "text/plain", nil)
+	require.NoError(t, err)
+	assert.Equal(t, loomv1.StorageLocation_STORAGE_LOCATION_MEMORY, ref.Location)
+
+	// Get metadata
+	metadataResult, err := getMetadataTool.Execute(ctx, map[string]any{
+		"reference_id": ref.Id,
+	})
+	require.NoError(t, err)
+	require.True(t, metadataResult.Success)
+
+	metadata, ok := metadataResult.Data.(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, "text", metadata["data_type"])
+
+	// Test pagination - first 10 lines
+	result1, err := queryTool.Execute(ctx, map[string]any{
+		"reference_id": ref.Id,
+		"offset":       float64(0),
+		"limit":        float64(10),
+	})
+	require.NoError(t, err)
+	require.True(t, result1.Success, "text pagination should succeed")
+
+	data1 := result1.Data.(map[string]any)
+	returnedLines1 := data1["lines"].([]string)
+	assert.Len(t, returnedLines1, 10, "should return 10 lines")
+	assert.Equal(t, "Line 1: This is test content for line number 1", returnedLines1[0])
+	assert.Equal(t, 10, data1["returned_count"])
+	assert.Equal(t, 100, data1["total_lines"])
+	assert.True(t, data1["has_more"].(bool))
+
+	// Test pagination - middle 10 lines
+	result2, err := queryTool.Execute(ctx, map[string]any{
+		"reference_id": ref.Id,
+		"offset":       float64(45),
+		"limit":        float64(10),
+	})
+	require.NoError(t, err)
+	require.True(t, result2.Success)
+
+	data2 := result2.Data.(map[string]any)
+	returnedLines2 := data2["lines"].([]string)
+	assert.Len(t, returnedLines2, 10)
+	assert.Equal(t, "Line 46: This is test content for line number 46", returnedLines2[0])
+
+	// Test pagination - last 10 lines
+	result3, err := queryTool.Execute(ctx, map[string]any{
+		"reference_id": ref.Id,
+		"offset":       float64(90),
+		"limit":        float64(10),
+	})
+	require.NoError(t, err)
+	require.True(t, result3.Success)
+
+	data3 := result3.Data.(map[string]any)
+	returnedLines3 := data3["lines"].([]string)
+	assert.Len(t, returnedLines3, 10)
+	assert.Equal(t, "Line 91: This is test content for line number 91", returnedLines3[0])
+	assert.False(t, data3["has_more"].(bool), "should be last page")
+
+	// Test invalid offset
+	result4, err := queryTool.Execute(ctx, map[string]any{
+		"reference_id": ref.Id,
+		"offset":       float64(150),
+		"limit":        float64(10),
+	})
+	require.NoError(t, err)
+	assert.False(t, result4.Success, "should fail with invalid offset")
+	assert.Contains(t, result4.Error.Message, "out of range")
 }

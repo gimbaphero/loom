@@ -211,6 +211,39 @@ query_tool_result(
 - Tabular data files
 - Spreadsheet-like data
 
+#### 5. Plain Text (Log Files, Documents)
+
+**When to use:** `content_type: "text/plain"` or `data_type: "text"`
+
+**Pattern: Line-Based Pagination**
+```
+query_tool_result(reference_id="ref_text456", offset=0, limit=100)
+```
+
+**Use cases:**
+- Log files (application logs, system logs)
+- Large text documents
+- Configuration files
+- Multi-line command output
+
+**Example:**
+```
+Tool: shell_execute(command="tail -1000 /var/log/app.log")
+  → Returns: DataRef[ref_text456, MEMORY, 50KB] (1000 lines)
+
+You: get_tool_result(reference_id="ref_text456")
+  → Returns: {data_type: "text", schema: {item_count: 1000}, preview: {...}}
+
+You: query_tool_result(reference_id="ref_text456", offset=0, limit=100)
+  → Returns: {lines: ["[2026-01-12 10:00:00] INFO Starting app", ...],
+              total_lines: 1000, returned_count: 100, has_more: true}
+
+You: query_tool_result(reference_id="ref_text456", offset=900, limit=100)
+  → Returns: Last 100 lines of the log file
+```
+
+**Note:** Text is paginated by lines (like `head -n 100`), not by bytes. Each line is a separate item.
+
 ### Critical Rules
 
 **DO:**
