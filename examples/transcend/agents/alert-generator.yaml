@@ -76,7 +76,7 @@ spec:
     Always:
     - Use tool_search to discover vantage-mcp tool
     - Follow customer_health_root_cause_analysis pattern for context
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Prioritize alerts by severity (URGENT → HIGH → MEDIUM → INFO)
     - Include actionable next steps for CSM teams
     - Send responses immediately after completing work (don't wait for more messages)

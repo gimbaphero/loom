@@ -1,39 +1,97 @@
-# Embedded Assets
+# Embedded Files
 
-This package contains files that are embedded into the loom binaries using Go's `//go:embed` directive. This ensures critical configuration files are always available, even when the binary is distributed separately from the source tree.
+This directory contains files that are embedded into the Loom binary at compile time using Go's `embed` directive.
 
 ## Files
 
-- **weaver.yaml**: Default meta-agent configuration that orchestrates other agents and manages complex workflows
+### weaver.yaml (GENERATED - DO NOT EDIT)
 
-## Usage
+The weaver agent configuration file. This file is **automatically generated** from `weaver.yaml.tmpl` during the build process.
 
-```go
-import "github.com/teradata-labs/loom/embedded"
+**Source**: `embedded/weaver.yaml.tmpl`
+**Generator**: `cmd/generate-weaver/main.go`
+**Build Step**: `just generate-weaver` (runs automatically before build)
 
-// Get the embedded weaver.yaml content
-weaverConfig := embedded.GetWeaver()
+The generator injects current CLI help documentation into the weaver agent's system prompt, ensuring the weaver always has accurate, up-to-date command reference when instructing users.
+
+**DO NOT edit `weaver.yaml` directly** - your changes will be overwritten on the next build. Instead:
+1. Edit `weaver.yaml.tmpl` for template changes
+2. Modify `cmd/generate-weaver/main.go` to change CLI help extraction
+3. Run `just generate-weaver` to regenerate
+
+### weaver.yaml.tmpl
+
+Template file for the weaver agent configuration. Contains a `{{.CLIHelp}}` placeholder that gets replaced with current CLI help output during build.
+
+To update the weaver prompt:
+```bash
+# 1. Edit the template
+vim embedded/weaver.yaml.tmpl
+
+# 2. Regenerate weaver.yaml
+just generate-weaver
+
+# 3. Build
+just build
 ```
 
-## Adding New Embedded Files
+## How It Works
 
-1. Copy the file to this directory
-2. Add an embed directive in `agents.go`:
-   ```go
-   //go:embed myfile.yaml
-   var MyFileYAML []byte
-   ```
-3. Add a getter function
-4. Add tests in `agents_test.go`
+1. **Build time**: `just build` → `just generate-weaver` → runs `cmd/generate-weaver`
+2. **Generation**:
+   - Reads `embedded/weaver.yaml.tmpl`
+   - Executes `looms --help`, `looms workflow --help`, etc. (using binary if available, otherwise `go run`)
+   - Replaces `{{.CLIHelp}}` with formatted CLI help text
+   - Writes `embedded/weaver.yaml`
+3. **Compilation**: Go's `embed` directive includes `weaver.yaml` in binary
+4. **Runtime**: `embedded.GetWeaver()` returns the embedded content
 
-## Why Embed?
+## agents.go
 
-When `looms serve` runs on a fresh install (or a packaged binary), it needs access to default agent configurations. By embedding these files:
+The Go package that provides access to embedded files:
+- `GetWeaver()` - Returns weaver.yaml content
+- `GetStartHere()` - Returns base ROM (delegates to pkg/agent/rom_loader.go)
 
-- Users get a working setup immediately after binary installation
-- No need to distribute the entire source tree with the binary
-- Consistent experience across development and production environments
+## Why Generate weaver.yaml?
 
-## Note on Paths
+The weaver meta-agent creates other agents and workflows. It needs to know:
+- How to tell users to validate workflows (`looms workflow validate`)
+- How to tell users to run workflows (`looms workflow run`)
+- Exact command syntax and flags
 
-Go's `//go:embed` directive requires paths relative to the source file and cannot use `..` to navigate up. That's why files are copied into this directory at the module root rather than referenced from `examples/`.
+By auto-generating from live CLI help, the weaver:
+- ✅ Never gives outdated commands
+- ✅ Always knows current flags and options
+- ✅ Stays in sync with code changes
+- ✅ Reduces hallucination of incorrect commands
+
+## Troubleshooting
+
+**Problem**: `embedded/agents.go:15:12: pattern weaver.yaml: no matching files found`
+
+**Solution**: weaver.yaml doesn't exist yet. This is expected on first build from clean state.
+```bash
+# Option 1: Build looms first (bootstraps the generator)
+just build-server
+
+# Option 2: Create minimal weaver.yaml manually
+cp embedded/weaver.yaml.tmpl embedded/weaver.yaml
+# Edit to remove {{.CLIHelp}} template placeholder
+```
+
+After first successful build, subsequent builds will regenerate automatically.
+
+**Problem**: Changes to `weaver.yaml.tmpl` not appearing in weaver
+
+**Solution**: Run `just generate-weaver` explicitly, then rebuild:
+```bash
+just generate-weaver
+just build
+```
+
+## Version Control
+
+- ✅ **Tracked**: `weaver.yaml.tmpl`, `agents.go`, `README.md`
+- ❌ **Not Tracked**: `weaver.yaml` (generated file, in .gitignore)
+
+The generated `weaver.yaml` is excluded from git because it's build-time generated and contains system-specific paths.

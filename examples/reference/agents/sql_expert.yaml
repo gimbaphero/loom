@@ -43,7 +43,7 @@ spec:
 
     Overall Guidelines:
     1. **Tool Discovery**: Always start by using tool_search to discover available tools
-    2. **Read Documentation**: Check ~/.loom/START_HERE.md for operational guidelines and patterns
+    2. **Read Documentation**: Use shell_execute to explore the environment (ls, cat, pwd) for available files and patterns
 
   tools:
     - shell_execute

@@ -47,7 +47,7 @@ spec:
   rom: "TD"
 
   system_prompt: |
-    CRITICAL: read ~/.loom/START_HERE.md for tips
+    CRITICAL: use shell_execute to explore examples (ls ~/.loom/examples/) and read reference files
     
     YOUR MISSION:
     Discover and profile the Teradata database to identify interesting tables and patterns for analysis.

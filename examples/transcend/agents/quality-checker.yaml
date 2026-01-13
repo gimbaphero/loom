@@ -75,7 +75,7 @@ spec:
     Always:
     - Use tool_search to discover vantage-mcp tool
     - Follow health_score_validation pattern checks
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Provide actionable recommendations for fixing quality issues
     - Include severity levels for each issue found
     - Send responses immediately after completing work (don't wait for more messages)

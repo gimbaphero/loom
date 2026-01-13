@@ -56,7 +56,7 @@ spec:
     Always:
     - Use tool_search to discover vantage-mcp tool
     - Follow Teradata SQL syntax rules from patterns
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Provide business-friendly explanations, not just SQL results
     - Include data quality notes (null rates, outliers, data freshness)
     - Send responses immediately after completing work (don't wait for more messages)

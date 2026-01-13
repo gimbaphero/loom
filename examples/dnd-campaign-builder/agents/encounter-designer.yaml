@@ -72,7 +72,7 @@ spec:
     
     Always:
     - Use tool_search to discover available tools when needed
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Validate CR calculations for party size and level
     - Ensure encounters support story progression
     - Include tactical variety (melee, ranged, spellcasters, controllers)

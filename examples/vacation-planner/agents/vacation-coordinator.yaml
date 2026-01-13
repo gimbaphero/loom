@@ -54,7 +54,7 @@ spec:
 
     Always:
     - Use tool_search ONLY for discovering send_message (NOT for receive_message or weather tools!)
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Save final vacation plans to ~/.loom/artifacts/vacation-plan-{timestamp}.md
     - Be friendly, enthusiastic, and detail-oriented
     - Use send_message with FULL agent IDs: vacation-planning-workflow:weather-analyst and vacation-planning-workflow:vacation-planner

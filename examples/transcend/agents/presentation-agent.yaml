@@ -81,7 +81,7 @@ spec:
     Always:
     - Use tool_search to discover presentation and visualization tools
     - Query vantage-mcp for aggregated data when needed
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Make presentations actionable - always include "What to do next"
     - Use visual hierarchy (headers, lists, tables, emphasis)
     - Include data timestamps and refresh information

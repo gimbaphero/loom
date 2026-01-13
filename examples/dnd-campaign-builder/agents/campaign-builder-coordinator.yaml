@@ -81,7 +81,7 @@ spec:
 
     Always:
     - Use tool_search ONLY for discovering send_message (NOT for receive_message!)
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Save final campaign overview to ~/.loom/artifacts/dnd-campaigns/{campaign_id}/overview.md
     - Be enthusiastic, creative, and encouraging about their campaign ideas
     - Use send_message with FULL agent IDs including the workflow prefix

@@ -93,7 +93,7 @@ spec:
     
     Always:
     - Use tool_search to discover available tools when needed
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Create comprehensive and well-organized documents
     - Separate player-facing from DM-only content
     - Include navigation aids (TOC, index, cross-references)

@@ -95,7 +95,7 @@ spec:
     
     Always:
     - Use tool_search to discover available tools when needed
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Integrate all campaign components cohesively
     - Provide clear DM guidance for running each session
     - Include contingency plans for player choices

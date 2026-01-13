@@ -430,6 +430,35 @@ func (a *Agent) GetConfig() *Config {
 // getSystemPrompt loads the system prompt from config or PromptRegistry.
 // Priority: ROM + Config.SystemPrompt (if explicitly set) > ROM + PromptRegistry > Default
 // ROM (Read-Only Memory) provides domain-specific knowledge loaded based on config.Rom
+// formatSystemPromptWithDatetime prepends current date/time information to system prompts.
+// This helps agents maintain temporal awareness and prevents confusion about the current date.
+func formatSystemPromptWithDatetime(prompt string) string {
+	now := time.Now()
+
+	// Format: "Monday, January 2, 2006 at 3:04 PM MST"
+	dateStr := now.Format("Monday, January 2, 2006")
+	timeStr := now.Format("3:04 PM MST")
+	timezone := now.Location().String()
+
+	// Get UTC offset for clarity
+	_, offset := now.Zone()
+	offsetHours := offset / 3600
+	offsetSign := "+"
+	if offsetHours < 0 {
+		offsetSign = "-"
+		offsetHours = -offsetHours
+	}
+
+	header := fmt.Sprintf("CURRENT DATE AND TIME\n"+
+		"Date: %s\n"+
+		"Time: %s (UTC%s%d)\n"+
+		"Timezone: %s\n\n"+
+		"---\n\n",
+		dateStr, timeStr, offsetSign, offsetHours, timezone)
+
+	return header + prompt
+}
+
 func (a *Agent) getSystemPrompt() string {
 	// Load ROM content first (if configured)
 	var romContent string
@@ -448,9 +477,9 @@ func (a *Agent) getSystemPrompt() string {
 	if a.config != nil && a.config.SystemPrompt != "" {
 		// Combine ROM + System Prompt
 		if romContent != "" {
-			return romContent + "\n\n---\n\n" + a.config.SystemPrompt
+			return formatSystemPromptWithDatetime(romContent + "\n\n---\n\n" + a.config.SystemPrompt)
 		}
-		return a.config.SystemPrompt
+		return formatSystemPromptWithDatetime(a.config.SystemPrompt)
 	}
 
 	// Try loading from PromptRegistry as fallback
@@ -474,7 +503,7 @@ func (a *Agent) getSystemPrompt() string {
 		if streamingSupported {
 			prompt, err := a.prompts.Get(context.Background(), "agent.system_with_streaming", vars)
 			if err == nil && prompt != "" {
-				return prompt
+				return formatSystemPromptWithDatetime(prompt)
 			}
 			// Fall through to standard prompt if streaming prompt not found
 		}
@@ -482,13 +511,13 @@ func (a *Agent) getSystemPrompt() string {
 		// Try loading system prompt with patterns if pattern library is available
 		prompt, err := a.prompts.Get(context.Background(), "agent.system", vars)
 		if err == nil && prompt != "" {
-			return prompt
+			return formatSystemPromptWithDatetime(prompt)
 		}
 
 		// Fall back to basic system prompt
 		prompt, err = a.prompts.Get(context.Background(), "agent.system_basic", vars)
 		if err == nil && prompt != "" {
-			return prompt
+			return formatSystemPromptWithDatetime(prompt)
 		}
 	}
 
@@ -496,18 +525,18 @@ func (a *Agent) getSystemPrompt() string {
 	if a.config.SystemPrompt != "" {
 		// Combine ROM + System Prompt
 		if romContent != "" {
-			return romContent + "\n\n---\n\n" + a.config.SystemPrompt
+			return formatSystemPromptWithDatetime(romContent + "\n\n---\n\n" + a.config.SystemPrompt)
 		}
-		return a.config.SystemPrompt
+		return formatSystemPromptWithDatetime(a.config.SystemPrompt)
 	}
 
 	// If we have ROM but no system prompt, just use ROM
 	if romContent != "" {
-		return romContent
+		return formatSystemPromptWithDatetime(romContent)
 	}
 
 	// Final fallback - minimal instruction
-	return `Use available tools to help the user accomplish their goals. Never fabricate data - only report what tools actually return.`
+	return formatSystemPromptWithDatetime(`Use available tools to help the user accomplish their goals. Never fabricate data - only report what tools actually return.`)
 }
 
 // getGuidanceMessage loads a guidance message from PromptRegistry or returns default.

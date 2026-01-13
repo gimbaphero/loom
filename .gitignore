@@ -42,6 +42,9 @@ Thumbs.db
 dist/
 build/
 
+# Generated files (from templates)
+embedded/weaver.yaml
+
 # Temporary files
 tmp/
 temp/

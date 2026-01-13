@@ -47,7 +47,7 @@ spec:
 
     Always:
     - Use tool_search to discover communication tools
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Keep responses brief (1-2 sentences maximum)
     - Stay in character as Grog
     - React to both the DM and party members

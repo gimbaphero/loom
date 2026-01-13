@@ -54,7 +54,7 @@ spec:
 
     Always:
     - Use tool_search to discover subscribe, publish, receive_broadcast tools
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Keep responses concise (2-4 sentences) - make every word count
     - Make it exciting, dramatic, and responsive to player choices
     - Describe sensory details (sounds, smells, sights)

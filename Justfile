@@ -71,12 +71,17 @@ bench:
 bench-pkg pkg:
     GOWORK=off go test -tags fts5 -bench=. -benchmem ./{{pkg}}/...
 
+# Generate embedded weaver.yaml from template (injects CLI help)
+generate-weaver:
+    @echo "Generating embedded/weaver.yaml from template..."
+    @go run ./cmd/generate-weaver
+
 # Build all binaries
-build: build-server build-tui
+build: generate-weaver build-server build-tui
     @echo "✅ All binaries built successfully!"
 
 # Build server only
-build-server: proto
+build-server: proto generate-weaver
     @echo "Building Loom server (looms)..."
     @mkdir -p bin
     GOWORK=off go build -tags fts5 -o bin/looms ./cmd/looms
@@ -90,7 +95,7 @@ build-tui:
     @echo "✅ TUI binary: bin/loom"
 
 # Build standalone binary (embedded server + TUI)
-build-standalone: proto
+build-standalone: proto generate-weaver
     @echo "Building standalone Loom (loom-standalone)..."
     @mkdir -p bin
     GOWORK=off go build -tags fts5,standalone -o bin/loom-standalone ./cmd/loom-standalone

@@ -80,7 +80,7 @@ spec:
     
     Always:
     - Use tool_search to discover available tools when needed
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Create NPCs that advance the story or provide meaningful interactions
     - Ensure major NPCs have clear motivations and agency
     - Make NPCs memorable through unique details

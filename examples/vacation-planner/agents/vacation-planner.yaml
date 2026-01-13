@@ -44,7 +44,7 @@ spec:
 
     Always:
     - Use tool_search to discover available web search, html, and information tools
-    - Read ~/.loom/START_HERE.md for operational guidelines
+    - Use shell_execute to explore the working directory (pwd, ls, cat) for context
     - Save detailed destination reports to ~/.loom/artifacts/destinations-{timestamp}.md
     - Consider diverse options (popular and hidden gems)
     - Use receive_message to get requests from the coordinator
