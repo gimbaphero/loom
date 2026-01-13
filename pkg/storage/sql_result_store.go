@@ -74,10 +74,23 @@ func NewSQLResultStore(config *SQLResultStoreConfig) (*SQLResultStore, error) {
 		ttl = DefaultTTLSeconds * time.Second
 	}
 
-	// Open database
-	db, err := sql.Open("sqlite3", dbPath+"?_fk=1&_busy_timeout=10000")
+	// Open database using same pattern as SessionStore for compatibility
+	// All stores share the same loom.db file and must use consistent connection parameters
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
+	}
+
+	// Enable WAL mode for better concurrency (matches SessionStore/ErrorStore/ArtifactStore pattern)
+	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to enable WAL mode: %w", err)
+	}
+
+	// Set busy timeout for lock contention
+	if _, err := db.Exec("PRAGMA busy_timeout = 10000"); err != nil {
+		db.Close()
+		return nil, fmt.Errorf("failed to set busy timeout: %w", err)
 	}
 
 	store := &SQLResultStore{

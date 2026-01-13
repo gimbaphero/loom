@@ -368,6 +368,13 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Create production logger with INFO level (stack traces only for ERROR level)
 	zapConfig := zap.NewProductionConfig()
 	zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+
+	// Configure log output file if specified
+	if config.Logging.File != "" {
+		zapConfig.OutputPaths = []string{config.Logging.File}
+		zapConfig.ErrorOutputPaths = []string{config.Logging.File}
+	}
+
 	logger, err := zapConfig.Build(zap.AddStacktrace(zap.ErrorLevel))
 	if err != nil {
 		log.Fatalf("Failed to create logger: %v", err)
