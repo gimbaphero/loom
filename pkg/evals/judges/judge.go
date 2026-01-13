@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	llmjudge "github.com/teradata-labs/loom/pkg/evals/judges/llm"
 	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
 	"github.com/teradata-labs/loom/pkg/agent"
+	llmjudge "github.com/teradata-labs/loom/pkg/evals/judges/llm"
 	"github.com/teradata-labs/loom/pkg/observability"
 	"github.com/teradata-labs/loom/pkg/types"
 	"google.golang.org/protobuf/types/known/timestamppb"
