@@ -182,8 +182,12 @@ func TestGetDomainROMSize(t *testing.T) {
 	if size == 0 {
 		t.Fatal("TD domain ROM size should not be 0")
 	}
-	if size < 30000 {
-		t.Fatalf("TD domain ROM should be ~31KB, got %d bytes", size)
+	// ROM was optimized from 31KB to ~11KB
+	if size < 10000 {
+		t.Fatalf("TD domain ROM should be ~11KB, got %d bytes", size)
+	}
+	if size > 15000 {
+		t.Fatalf("TD domain ROM should be ~11KB (optimized), got %d bytes - did someone expand it?", size)
 	}
 	t.Logf("TD domain ROM size: %d bytes", size)
 }
