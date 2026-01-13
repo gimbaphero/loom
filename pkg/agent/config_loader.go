@@ -8,6 +8,7 @@ package agent
 import (
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,18 @@ import (
 	loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
 	"gopkg.in/yaml.v3"
 )
+
+// safeInt32 safely converts an int to int32 with bounds checking.
+// Returns an error if the value is outside the int32 range.
+func safeInt32(val int, fieldName string) (int32, error) {
+	if val > math.MaxInt32 {
+		return 0, fmt.Errorf("%s value %d exceeds maximum int32 value (%d)", fieldName, val, math.MaxInt32)
+	}
+	if val < math.MinInt32 {
+		return 0, fmt.Errorf("%s value %d is below minimum int32 value (%d)", fieldName, val, math.MinInt32)
+	}
+	return int32(val), nil
+}
 
 // AgentConfigYAML represents the YAML structure for agent configuration.
 // This struct mirrors the proto AgentConfig but uses YAML-friendly types.
@@ -120,12 +133,22 @@ type MemoryCompressionBatchSizesYAML struct {
 
 // BehaviorConfigYAML represents behavior configuration in YAML
 type BehaviorConfigYAML struct {
-	MaxIterations      int      `yaml:"max_iterations"`
-	TimeoutSeconds     int      `yaml:"timeout_seconds"`
-	AllowCodeExecution bool     `yaml:"allow_code_execution"`
-	AllowedDomains     []string `yaml:"allowed_domains"`
-	MaxTurns           int      `yaml:"max_turns"`
-	MaxToolExecutions  int      `yaml:"max_tool_executions"`
+	MaxIterations      int                `yaml:"max_iterations"`
+	TimeoutSeconds     int                `yaml:"timeout_seconds"`
+	AllowCodeExecution bool               `yaml:"allow_code_execution"`
+	AllowedDomains     []string           `yaml:"allowed_domains"`
+	MaxTurns           int                `yaml:"max_turns"`
+	MaxToolExecutions  int                `yaml:"max_tool_executions"`
+	Patterns           *PatternConfigYAML `yaml:"patterns"`
+}
+
+// PatternConfigYAML represents pattern configuration in YAML
+type PatternConfigYAML struct {
+	Enabled            *bool    `yaml:"enabled"`
+	MinConfidence      *float64 `yaml:"min_confidence"`
+	MaxPatternsPerTurn *int     `yaml:"max_patterns_per_turn"`
+	EnableTracking     *bool    `yaml:"enable_tracking"`
+	UseLLMClassifier   *bool    `yaml:"use_llm_classifier"`
 }
 
 // LoadAgentConfig loads agent configuration from a YAML file and converts it to proto.
@@ -195,7 +218,7 @@ func LoadConfigFromString(yamlContent string) (*loomv1.AgentConfig, error) {
 	}
 
 	// Convert YAML to proto
-	return yamlToProto(&yamlConfig), nil
+	return yamlToProto(&yamlConfig)
 }
 
 // convertK8sToLegacy converts k8s-style config to legacy format.
@@ -324,7 +347,7 @@ func convertMetadataToInterface(metadata map[string]string) map[string]interface
 }
 
 // yamlToProto converts YAML config to proto AgentConfig
-func yamlToProto(yaml *AgentConfigYAML) *loomv1.AgentConfig {
+func yamlToProto(yaml *AgentConfigYAML) (*loomv1.AgentConfig, error) {
 	// Start with existing metadata
 	metadata := convertMetadata(yaml.Agent.Metadata)
 	if metadata == nil {
@@ -344,17 +367,34 @@ func yamlToProto(yaml *AgentConfigYAML) *loomv1.AgentConfig {
 		Metadata:     metadata,
 	}
 
-	// Convert LLM config
+	// Convert LLM config with safe integer conversions
+	maxTokens, err := safeInt32(yaml.Agent.LLM.MaxTokens, "LLM.MaxTokens")
+	if err != nil {
+		return nil, fmt.Errorf("invalid LLM config: %w", err)
+	}
+	topK, err := safeInt32(yaml.Agent.LLM.TopK, "LLM.TopK")
+	if err != nil {
+		return nil, fmt.Errorf("invalid LLM config: %w", err)
+	}
+	maxContextTokens, err := safeInt32(yaml.Agent.LLM.MaxContextTokens, "LLM.MaxContextTokens")
+	if err != nil {
+		return nil, fmt.Errorf("invalid LLM config: %w", err)
+	}
+	reservedOutputTokens, err := safeInt32(yaml.Agent.LLM.ReservedOutputTokens, "LLM.ReservedOutputTokens")
+	if err != nil {
+		return nil, fmt.Errorf("invalid LLM config: %w", err)
+	}
+
 	config.Llm = &loomv1.LLMConfig{
 		Provider:             yaml.Agent.LLM.Provider,
 		Model:                yaml.Agent.LLM.Model,
 		Temperature:          float32(yaml.Agent.LLM.Temperature),
-		MaxTokens:            int32(yaml.Agent.LLM.MaxTokens),
+		MaxTokens:            maxTokens,
 		StopSequences:        yaml.Agent.LLM.StopSequences,
 		TopP:                 float32(yaml.Agent.LLM.TopP),
-		TopK:                 int32(yaml.Agent.LLM.TopK),
-		MaxContextTokens:     int32(yaml.Agent.LLM.MaxContextTokens),
-		ReservedOutputTokens: int32(yaml.Agent.LLM.ReservedOutputTokens),
+		TopK:                 topK,
+		MaxContextTokens:     maxContextTokens,
+		ReservedOutputTokens: reservedOutputTokens,
 	}
 
 	// Set defaults for LLM if not specified
@@ -386,12 +426,17 @@ func yamlToProto(yaml *AgentConfigYAML) *loomv1.AgentConfig {
 		}
 	}
 
-	// Convert memory config
+	// Convert memory config with safe integer conversion
+	maxHistory, err := safeInt32(yaml.Agent.Memory.MaxHistory, "Memory.MaxHistory")
+	if err != nil {
+		return nil, fmt.Errorf("invalid memory config: %w", err)
+	}
+
 	config.Memory = &loomv1.MemoryConfig{
 		Type:       yaml.Agent.Memory.Type,
 		Path:       yaml.Agent.Memory.Path,
 		Dsn:        yaml.Agent.Memory.DSN,
-		MaxHistory: int32(yaml.Agent.Memory.MaxHistory),
+		MaxHistory: maxHistory,
 	}
 
 	// Set defaults for memory
@@ -407,14 +452,62 @@ func yamlToProto(yaml *AgentConfigYAML) *loomv1.AgentConfig {
 		config.Memory.MemoryCompression = parseMemoryCompressionConfig(yaml.Agent.Memory.MemoryCompression)
 	}
 
-	// Convert behavior config
+	// Convert behavior config with safe integer conversions
+	maxIterations, err := safeInt32(yaml.Agent.Behavior.MaxIterations, "MaxIterations")
+	if err != nil {
+		return nil, fmt.Errorf("invalid behavior config: %w", err)
+	}
+	timeoutSeconds, err := safeInt32(yaml.Agent.Behavior.TimeoutSeconds, "TimeoutSeconds")
+	if err != nil {
+		return nil, fmt.Errorf("invalid behavior config: %w", err)
+	}
+	maxTurns, err := safeInt32(yaml.Agent.Behavior.MaxTurns, "MaxTurns")
+	if err != nil {
+		return nil, fmt.Errorf("invalid behavior config: %w", err)
+	}
+	maxToolExecutions, err := safeInt32(yaml.Agent.Behavior.MaxToolExecutions, "MaxToolExecutions")
+	if err != nil {
+		return nil, fmt.Errorf("invalid behavior config: %w", err)
+	}
+
 	config.Behavior = &loomv1.BehaviorConfig{
-		MaxIterations:      int32(yaml.Agent.Behavior.MaxIterations),
-		TimeoutSeconds:     int32(yaml.Agent.Behavior.TimeoutSeconds),
+		MaxIterations:      maxIterations,
+		TimeoutSeconds:     timeoutSeconds,
 		AllowCodeExecution: yaml.Agent.Behavior.AllowCodeExecution,
 		AllowedDomains:     yaml.Agent.Behavior.AllowedDomains,
-		MaxTurns:           int32(yaml.Agent.Behavior.MaxTurns),
-		MaxToolExecutions:  int32(yaml.Agent.Behavior.MaxToolExecutions),
+		MaxTurns:           maxTurns,
+		MaxToolExecutions:  maxToolExecutions,
+	}
+
+	// Parse pattern config if present
+	if yaml.Agent.Behavior.Patterns != nil {
+		pc := yaml.Agent.Behavior.Patterns
+		config.Behavior.Patterns = &loomv1.PatternConfig{
+			Enabled:            true, // default
+			MinConfidence:      0.75, // default
+			MaxPatternsPerTurn: 1,    // default
+			EnableTracking:     true, // default
+		}
+
+		if pc.Enabled != nil {
+			config.Behavior.Patterns.Enabled = *pc.Enabled
+		}
+		if pc.MinConfidence != nil {
+			config.Behavior.Patterns.MinConfidence = float32(*pc.MinConfidence)
+		}
+		if pc.MaxPatternsPerTurn != nil {
+			maxPatternsPerTurn, err := safeInt32(*pc.MaxPatternsPerTurn, "MaxPatternsPerTurn")
+			if err != nil {
+				return nil, fmt.Errorf("invalid pattern config: %w", err)
+			}
+			config.Behavior.Patterns.MaxPatternsPerTurn = maxPatternsPerTurn
+		}
+		if pc.EnableTracking != nil {
+			config.Behavior.Patterns.EnableTracking = *pc.EnableTracking
+		}
+		if pc.UseLLMClassifier != nil {
+			config.Behavior.Patterns.UseLlmClassifier = *pc.UseLLMClassifier
+		}
 	}
 
 	// Set defaults for behavior
@@ -431,7 +524,7 @@ func yamlToProto(yaml *AgentConfigYAML) *loomv1.AgentConfig {
 		config.Behavior.MaxToolExecutions = 50 // Default tool executions
 	}
 
-	return config
+	return config, nil
 }
 
 // parseMemoryCompressionConfig converts YAML memory compression config to proto
@@ -440,11 +533,29 @@ func parseMemoryCompressionConfig(yaml *MemoryCompressionConfigYAML) *loomv1.Mem
 		return nil
 	}
 
+	// Safe integer conversions for memory compression config
+	maxL1, err := safeInt32(yaml.MaxL1Messages, "MaxL1Messages")
+	if err != nil {
+		return nil
+	}
+	minL1, err := safeInt32(yaml.MinL1Messages, "MinL1Messages")
+	if err != nil {
+		return nil
+	}
+	warningThreshold, err := safeInt32(yaml.WarningThresholdPercent, "WarningThresholdPercent")
+	if err != nil {
+		return nil
+	}
+	criticalThreshold, err := safeInt32(yaml.CriticalThresholdPercent, "CriticalThresholdPercent")
+	if err != nil {
+		return nil
+	}
+
 	config := &loomv1.MemoryCompressionConfig{
-		MaxL1Messages:            int32(yaml.MaxL1Messages),
-		MinL1Messages:            int32(yaml.MinL1Messages),
-		WarningThresholdPercent:  int32(yaml.WarningThresholdPercent),
-		CriticalThresholdPercent: int32(yaml.CriticalThresholdPercent),
+		MaxL1Messages:            maxL1,
+		MinL1Messages:            minL1,
+		WarningThresholdPercent:  warningThreshold,
+		CriticalThresholdPercent: criticalThreshold,
 	}
 
 	// Parse workload profile string to enum
@@ -463,12 +574,24 @@ func parseMemoryCompressionConfig(yaml *MemoryCompressionConfigYAML) *loomv1.Mem
 		config.WorkloadProfile = loomv1.WorkloadProfile_WORKLOAD_PROFILE_UNSPECIFIED
 	}
 
-	// Parse batch sizes if specified
+	// Parse batch sizes if specified with safe conversions
 	if yaml.BatchSizes != nil {
+		normal, err := safeInt32(yaml.BatchSizes.Normal, "BatchSizes.Normal")
+		if err != nil {
+			return nil
+		}
+		warning, err := safeInt32(yaml.BatchSizes.Warning, "BatchSizes.Warning")
+		if err != nil {
+			return nil
+		}
+		critical, err := safeInt32(yaml.BatchSizes.Critical, "BatchSizes.Critical")
+		if err != nil {
+			return nil
+		}
 		config.BatchSizes = &loomv1.MemoryCompressionBatchSizes{
-			Normal:   int32(yaml.BatchSizes.Normal),
-			Warning:  int32(yaml.BatchSizes.Warning),
-			Critical: int32(yaml.BatchSizes.Critical),
+			Normal:   normal,
+			Warning:  warning,
+			Critical: critical,
 		}
 	}
 
@@ -991,7 +1114,13 @@ func loadWeaverWorkflow(path string, data map[string]interface{}, llmProvider LL
 		}
 		maxTokens := int32(4096)
 		if tokensVal, ok := llmData["max_tokens"].(float64); ok {
-			maxTokens = int32(tokensVal)
+			maxTokensVal, err := safeInt32(int(tokensVal), "max_tokens")
+			if err != nil {
+				// Ignore error, keep default
+				maxTokens = 4096
+			} else {
+				maxTokens = maxTokensVal
+			}
 		}
 
 		llmConfig = &loomv1.LLMConfig{

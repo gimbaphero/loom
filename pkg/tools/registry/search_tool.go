@@ -58,34 +58,23 @@ Returns a list of matching tools with confidence scores, descriptions, and input
 
 // InputSchema returns the JSON schema for tool parameters.
 func (t *SearchTool) InputSchema() *shuttle.JSONSchema {
-	return &shuttle.JSONSchema{
-		Type: "object",
-		Properties: map[string]*shuttle.JSONSchema{
-			"query": {
-				Type:        "string",
-				Description: "Natural language description of what you want to do. Be specific about the task.",
-			},
-			"mode": {
-				Type:        "string",
-				Description: "Search accuracy mode: 'fast' (keyword only), 'balanced' (default, FTS + LLM re-ranking), 'accurate' (full LLM pipeline)",
-				Enum:        []interface{}{"fast", "balanced", "accurate"},
-			},
-			"capabilities": {
-				Type:        "array",
-				Description: "Optional capability filters to narrow results (e.g., ['notification', 'database'])",
-				Items:       &shuttle.JSONSchema{Type: "string"},
-			},
-			"max_results": {
-				Type:        "integer",
-				Description: "Maximum number of results to return (default: 5, max: 10)",
-			},
-			"task_context": {
-				Type:        "string",
-				Description: "Optional context about your current task to improve ranking accuracy",
-			},
+	return shuttle.NewObjectSchema(
+		"Parameters for tool search",
+		map[string]*shuttle.JSONSchema{
+			"query": shuttle.NewStringSchema("Natural language description of what you want to do. Be specific about the task."),
+			"mode": shuttle.NewStringSchema("Search accuracy mode: 'fast' (keyword only), 'balanced' (default, FTS + LLM re-ranking), 'accurate' (full LLM pipeline)").
+				WithEnum("fast", "balanced", "accurate").
+				WithDefault("balanced"),
+			"capabilities": shuttle.NewArraySchema(
+				"Optional capability filters to narrow results (e.g., ['notification', 'database'])",
+				shuttle.NewStringSchema("Capability name"),
+			),
+			"max_results": shuttle.NewNumberSchema("Maximum number of results to return (default: 5, max: 10)").
+				WithDefault(5),
+			"task_context": shuttle.NewStringSchema("Optional context about your current task to improve ranking accuracy"),
 		},
-		Required: []string{"query"},
-	}
+		[]string{"query"},
+	)
 }
 
 // Execute searches for tools matching the query.

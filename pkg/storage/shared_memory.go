@@ -184,7 +184,7 @@ func (s *SharedMemoryStore) Store(id string, data []byte, contentType string, me
 		Metadata:    metadata,
 		StoredAt:    now,
 		AccessedAt:  now,
-		RefCount:    1,
+		RefCount:    0, // Initialize to 0 - will be incremented by PinForSession() to prevent eviction
 	}
 
 	// Add to LRU
@@ -234,6 +234,18 @@ func (s *SharedMemoryStore) Get(ref *loomv1.DataReference) ([]byte, error) {
 		return nil, fmt.Errorf("data not found: %s", ref.Id)
 	}
 
+	// Check if data has expired (active TTL enforcement)
+	// Note: TTL expiration doesn't check RefCount - expired data is gone regardless of usage
+	if time.Since(sharedData.AccessedAt) > s.ttl {
+		// Data has expired, remove it
+		s.lruList.Remove(sharedData.lruElement)
+		delete(s.data, sharedData.ID)
+		s.currentSize -= sharedData.Size
+		s.evictions.Add(1)
+		s.misses.Add(1)
+		return nil, fmt.Errorf("data expired: %s", ref.Id)
+	}
+
 	// Verify checksum if provided (skip verification if checksum is empty)
 	// This allows GetToolResultTool to retrieve data with minimal DataReference
 	if ref.Checksum != "" {
@@ -246,7 +258,6 @@ func (s *SharedMemoryStore) Get(ref *loomv1.DataReference) ([]byte, error) {
 	// Update access time and move to front of LRU
 	sharedData.AccessedAt = time.Now()
 	s.lruList.MoveToFront(sharedData.lruElement)
-	atomic.AddInt32(&sharedData.RefCount, 1)
 	s.hits.Add(1)
 
 	// Decompress if needed
@@ -255,6 +266,17 @@ func (s *SharedMemoryStore) Get(ref *loomv1.DataReference) ([]byte, error) {
 	}
 
 	return sharedData.Data, nil
+}
+
+// IncrementRefCount increments the reference count for a data chunk.
+// Used by SessionReferenceTracker to pin references and prevent eviction.
+func (s *SharedMemoryStore) IncrementRefCount(id string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if sharedData, exists := s.data[id]; exists {
+		atomic.AddInt32(&sharedData.RefCount, 1)
+	}
 }
 
 // Release decrements the reference count for a data chunk.

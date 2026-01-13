@@ -22,11 +22,13 @@ import (
 	"time"
 
 	"github.com/teradata-labs/loom/pkg/communication"
+	"github.com/teradata-labs/loom/pkg/config"
 	"github.com/teradata-labs/loom/pkg/fabric"
 	"github.com/teradata-labs/loom/pkg/observability"
 	"github.com/teradata-labs/loom/pkg/patterns"
 	"github.com/teradata-labs/loom/pkg/prompts"
 	"github.com/teradata-labs/loom/pkg/shuttle"
+	"github.com/teradata-labs/loom/pkg/shuttle/builtin"
 	"github.com/teradata-labs/loom/pkg/storage"
 	"github.com/teradata-labs/loom/pkg/types"
 )
@@ -80,9 +82,21 @@ func NewAgent(backend fabric.ExecutionBackend, llmProvider LLMProvider, opts ...
 		opt(a)
 	}
 
+	// Initialize pattern config with defaults if not set
+	if a.config.PatternConfig == nil {
+		a.config.PatternConfig = DefaultPatternConfig()
+	}
+
 	// Initialize pattern orchestrator
 	patternLibrary := patterns.NewLibrary(nil, a.config.PatternsDir)
 	a.orchestrator = patterns.NewOrchestrator(patternLibrary)
+
+	// Initialize LLM classifier if configured
+	if a.config.PatternConfig.UseLLMClassifier && llmProvider != nil {
+		llmClassifierConfig := patterns.DefaultLLMClassifierConfig(llmProvider)
+		llmClassifier := patterns.NewLLMIntentClassifier(llmClassifierConfig)
+		a.orchestrator.SetIntentClassifier(llmClassifier)
+	}
 
 	// Create executor with tool registry
 	// Note: Pass instrumented executor via SetExecutor() if you want tool tracing
@@ -136,9 +150,10 @@ func NewAgent(backend fabric.ExecutionBackend, llmProvider LLMProvider, opts ...
 		a.tools.Register(NewGetErrorDetailsTool(a.errorStore))
 	}
 
-	// Register built-in get_tool_result tool for retrieving large results
-	if a.sharedMemory != nil {
-		a.tools.Register(NewGetToolResultTool(a.sharedMemory))
+	// Register built-in record_finding tool for working memory
+	// This prevents hallucination by allowing agents to record verified findings
+	if a.memory != nil {
+		a.tools.Register(NewRecordFindingTool(a.memory))
 	}
 
 	// Initialize SQL result store for queryable large SQL results
@@ -148,13 +163,33 @@ func NewAgent(backend fabric.ExecutionBackend, llmProvider LLMProvider, opts ...
 		TTLSeconds: 3600, // 1 hour TTL
 	})
 	if err == nil {
+		// Store reference for later use (e.g., when SetSharedMemory() is called)
+		a.sqlResultStore = sqlResultStore
+
 		// Set on executor so SQL results go to queryable tables
 		if a.executor != nil {
 			a.executor.SetSQLResultStore(sqlResultStore)
 		}
-		// Register query_tool_result tool
-		a.tools.Register(NewQueryToolResultTool(sqlResultStore))
+		// Register query_tool_result tool (v1.0.1: now accepts both SQL and memory stores)
+		a.tools.Register(NewQueryToolResultTool(sqlResultStore, a.sharedMemory))
 	}
+
+	// Auto-register shell_execute tool (standard toolset)
+	// Uses LOOM_DATA_DIR as baseDir for consistent artifact/data management
+	a.tools.Register(builtin.NewShellExecuteTool(config.GetLoomDataDir()))
+
+	// Note: tool_search is registered by AgentRegistry when a global tool registry is available
+	// Individual agents don't have access to the global tool registry during construction
+
+	// Register built-in get_tool_result tool for retrieving metadata
+	// EXPERIMENT: get_tool_result removed - inline metadata makes it unnecessary
+	// Inline metadata now includes preview, schema, size, and retrieval hints directly in tool responses.
+	// Agents should use query_tool_result for advanced querying (pagination, SQL filters).
+	//
+	// v1.0.1: Now returns only metadata, accepts both memory and SQL stores
+	// if a.sharedMemory != nil || sqlResultStore != nil {
+	// 	a.tools.Register(NewGetToolResultTool(a.sharedMemory, sqlResultStore))
+	// }
 	// If SQL store fails to initialize, just log and continue without it
 	// (SQL results will fall back to shared memory)
 
@@ -173,22 +208,24 @@ func NewAgent(backend fabric.ExecutionBackend, llmProvider LLMProvider, opts ...
 		}
 	}
 
-	// Register built-in swap layer tools for conversation recall
-	// These tools enable agents to access long-term conversation history
-	// Wrap with PromptAwareTool if prompts registry is available for externalized descriptions
-	recallTool := shuttle.Tool(NewRecallConversationTool(a.memory))
-	clearTool := shuttle.Tool(NewClearRecalledContextTool(a.memory))
-	searchTool := shuttle.Tool(NewSearchConversationTool(a.memory))
-
-	if a.prompts != nil {
-		recallTool = shuttle.NewPromptAwareTool(recallTool, a.prompts, "tools.memory.recall_conversation_description")
-		clearTool = shuttle.NewPromptAwareTool(clearTool, a.prompts, "tools.memory.clear_recalled_context_description")
-		searchTool = shuttle.NewPromptAwareTool(searchTool, a.prompts, "tools.memory.search_conversation_description")
-	}
-
-	a.tools.Register(recallTool)
-	a.tools.Register(clearTool)
-	a.tools.Register(searchTool)
+	// EXPERIMENT: Long-conversation tools disabled to test scratchpad + inline metadata approach
+	// These tools (recall_conversation, search_conversation, clear_recalled_context) previously
+	// enabled agents to access long-term conversation history from swap layer.
+	// Testing hypothesis: inline metadata + scratchpad may be more effective for multi-turn tasks.
+	//
+	// recallTool := shuttle.Tool(NewRecallConversationTool(a.memory))
+	// clearTool := shuttle.Tool(NewClearRecalledContextTool(a.memory))
+	// searchTool := shuttle.Tool(NewSearchConversationTool(a.memory))
+	//
+	// if a.prompts != nil {
+	// 	recallTool = shuttle.NewPromptAwareTool(recallTool, a.prompts, "tools.memory.recall_conversation_description")
+	// 	clearTool = shuttle.NewPromptAwareTool(clearTool, a.prompts, "tools.memory.clear_recalled_context_description")
+	// 	searchTool = shuttle.NewPromptAwareTool(searchTool, a.prompts, "tools.memory.search_conversation_description")
+	// }
+	//
+	// a.tools.Register(recallTool)
+	// a.tools.Register(clearTool)
+	// a.tools.Register(searchTool)
 
 	return a
 }
@@ -314,6 +351,23 @@ func WithMessageQueue(queue *communication.MessageQueue) Option {
 	}
 }
 
+// WithPatternConfig sets pattern configuration.
+func WithPatternConfig(cfg *PatternConfig) Option {
+	return func(a *Agent) {
+		a.config.PatternConfig = cfg
+	}
+}
+
+// WithPatternInjection enables/disables pattern injection.
+func WithPatternInjection(enabled bool) Option {
+	return func(a *Agent) {
+		if a.config.PatternConfig == nil {
+			a.config.PatternConfig = DefaultPatternConfig()
+		}
+		a.config.PatternConfig.Enabled = enabled
+	}
+}
+
 // RegisterTool registers a tool with the agent.
 func (a *Agent) RegisterTool(tool shuttle.Tool) {
 	a.tools.Register(tool)
@@ -324,6 +378,11 @@ func (a *Agent) RegisterTools(tools ...shuttle.Tool) {
 	for _, tool := range tools {
 		a.RegisterTool(tool)
 	}
+}
+
+// UnregisterTool unregisters a tool by name.
+func (a *Agent) UnregisterTool(name string) {
+	a.tools.Unregister(name)
 }
 
 // ToolCount returns the number of registered tools.
@@ -904,9 +963,108 @@ func (a *Agent) runConversationLoop(ctx Context) (*Response, error) {
 	// Emit pattern selection progress
 	emitProgress(ctx, StagePatternSelection, 10, "Analyzing query and selecting patterns", "")
 
+	// === PATTERN SELECTION INTEGRATION ===
+	var selectedPattern *patterns.Pattern
+	var patternConfidence float64
+
+	// Get pattern config (use defaults if not set)
+	patternConfig := a.config.PatternConfig
+	if patternConfig == nil {
+		patternConfig = DefaultPatternConfig()
+	}
+
+	// Only select patterns if enabled and prerequisites are met
+	if patternConfig.Enabled && a.orchestrator != nil && session != nil && a.backend != nil {
+		// Get most recent user message
+		messages := session.GetMessages()
+		var lastUserMessage string
+		for i := len(messages) - 1; i >= 0; i-- {
+			if messages[i].Role == "user" {
+				lastUserMessage = messages[i].Content
+				break
+			}
+		}
+
+		if lastUserMessage != "" {
+			// Start pattern selection span
+			var patternSpan *observability.Span
+			if a.config.EnableTracing && a.tracer != nil {
+				_, patternSpan = a.tracer.StartSpan(ctx, "agent.pattern_selection")
+				defer a.tracer.EndSpan(patternSpan)
+			}
+
+			// Build context data
+			contextData := map[string]interface{}{
+				"backend_type": a.backend.Name(),
+				"session_id":   session.ID,
+			}
+
+			// Step 1: Classify intent
+			intent, intentConf := a.orchestrator.ClassifyIntent(lastUserMessage, contextData)
+
+			if patternSpan != nil {
+				patternSpan.SetAttribute("intent.category", string(intent))
+				patternSpan.SetAttribute("intent.confidence", fmt.Sprintf("%.2f", intentConf))
+			}
+
+			// Step 2: Recommend pattern (if intent confidence sufficient)
+			if intent != patterns.IntentUnknown && intentConf > 0.3 {
+				patternName, patternConf := a.orchestrator.RecommendPattern(lastUserMessage, intent)
+				patternConfidence = patternConf
+
+				if patternSpan != nil {
+					patternSpan.SetAttribute("pattern.name", patternName)
+					patternSpan.SetAttribute("pattern.confidence", fmt.Sprintf("%.2f", patternConf))
+				}
+
+				// Step 3: Load pattern if confidence threshold met
+				if patternName != "" && patternConf >= patternConfig.MinConfidence {
+					pattern, err := a.orchestrator.GetLibrary().Load(patternName)
+					if err == nil {
+						selectedPattern = pattern
+
+						// Format and inject pattern
+						formattedPattern := pattern.FormatForLLM()
+
+						// Inject into segmented memory
+						if segMem, ok := session.SegmentedMem.(*SegmentedMemory); ok && segMem != nil {
+							segMem.InjectPattern(formattedPattern, pattern.Name)
+
+							if patternSpan != nil {
+								tokenCount := a.tokenCounter.CountTokens(formattedPattern)
+								patternSpan.SetAttribute("pattern.tokens", tokenCount)
+								patternSpan.SetAttribute("pattern.injected", "true")
+							}
+						}
+
+						// Record metrics
+						if a.config.EnableTracing && a.tracer != nil {
+							a.tracer.RecordMetric("patterns.recommended", 1.0, map[string]string{
+								"pattern":    patternName,
+								"intent":     string(intent),
+								"confidence": fmt.Sprintf("%.0f", patternConf*100),
+							})
+						}
+					} else if patternSpan != nil {
+						patternSpan.RecordError(fmt.Errorf("pattern load failed: %w", err))
+					}
+				}
+			}
+
+			// Update progress with pattern info
+			if selectedPattern != nil {
+				emitProgress(ctx, StagePatternSelection, 15,
+					fmt.Sprintf("Selected pattern: %s (%.0f%% confidence)",
+						selectedPattern.Title, patternConfidence*100), "")
+			}
+		}
+	}
+	// === END PATTERN SELECTION ===
+
 	// Conversation loop
 	for turnCount < a.config.MaxTurns && toolExecutionCount < a.config.MaxToolExecutions {
 		turnCount++
+		turnStartTime := time.Now()
 
 		// === FEATURE INTEGRATION: Token Budget Management ===
 		// Check token budget and enforce compression if needed (segmented memory only)
@@ -1226,6 +1384,56 @@ func (a *Agent) runConversationLoop(ctx Context) (*Response, error) {
 				}
 			}
 		}
+
+		// === PATTERN EFFECTIVENESS TRACKING ===
+		// Track pattern usage after tool execution completes
+		if selectedPattern != nil && patternConfig.EnableTracking && len(allToolExecutions) > 0 {
+			// Get the most recent tool execution for this turn
+			lastExecution := allToolExecutions[len(allToolExecutions)-1]
+
+			// Determine success based on execution result
+			success := lastExecution.Error == nil && (lastExecution.Result == nil || lastExecution.Result.Success)
+
+			// Extract error type if failed
+			errorType := ""
+			if !success {
+				if lastExecution.Error != nil {
+					errorType = "execution_error"
+				} else if lastExecution.Result != nil && lastExecution.Result.Error != nil {
+					errorType = lastExecution.Result.Error.Code
+				}
+			}
+
+			// Calculate cost (rough estimate based on LLM usage)
+			costUSD := 0.0
+			if llmResp != nil && llmResp.Usage.InputTokens > 0 {
+				// Anthropic pricing (approximate): $3/million input, $15/million output
+				costUSD = float64(llmResp.Usage.InputTokens)*0.000003 +
+					float64(llmResp.Usage.OutputTokens)*0.000015
+			}
+
+			// Calculate latency from turn start
+			latency := time.Since(turnStartTime)
+
+			// Extract LLM provider and model info
+			llmProvider := "anthropic" // Default
+			llmModel := "claude-sonnet-4-5"
+			// TODO: Extract actual provider/model from LLM provider interface when available
+
+			// Record pattern usage for effectiveness tracking
+			a.orchestrator.RecordPatternUsage(
+				ctx,
+				selectedPattern.Name,
+				a.config.Name,
+				success,
+				costUSD,
+				latency,
+				errorType,
+				llmProvider,
+				llmModel,
+			)
+		}
+		// === END PATTERN EFFECTIVENESS TRACKING ===
 	}
 
 	// If we hit max turns/executions, make one final LLM call to synthesize results
@@ -1285,6 +1493,21 @@ func (a *Agent) runConversationLoop(ctx Context) (*Response, error) {
 	}, nil
 }
 
+// contextWithValue wraps a Context to add a key-value pair while preserving the Context interface.
+type contextWithValue struct {
+	Context
+	key interface{}
+	val interface{}
+}
+
+// Value returns the value associated with this context for key, or delegates to parent.
+func (c *contextWithValue) Value(key interface{}) interface{} {
+	if key == c.key {
+		return c.val
+	}
+	return c.Context.Value(key)
+}
+
 // executeToolWithSelfCorrection wraps tool execution with optional circuit breaker.
 // If circuit breaker is enabled, provides failure isolation for tools.
 // If guardrails are enabled, tracks errors for error analysis.
@@ -1292,11 +1515,21 @@ func (a *Agent) executeToolWithSelfCorrection(ctx Context, toolName string, inpu
 	var result *shuttle.Result
 	var err error
 
+	// CRITICAL FIX: Add session_id to context for tools that need it
+	// Tools like recall_conversation, search_conversation, and clear_recalled_context
+	// expect session_id to be available in context
+	// Wrap the context to add session_id while preserving the Context interface
+	ctxWithSession := &contextWithValue{
+		Context: ctx,
+		key:     "session_id",
+		val:     sessionID,
+	}
+
 	// Execute with circuit breaker if enabled
 	if a.circuitBreakers != nil {
 		breaker := a.circuitBreakers.GetBreaker(toolName)
 		cbErr := breaker.Execute(func() error {
-			result, err = a.executor.Execute(ctx, toolName, input)
+			result, err = a.executor.Execute(ctxWithSession, toolName, input)
 			return err
 		})
 
@@ -1306,7 +1539,7 @@ func (a *Agent) executeToolWithSelfCorrection(ctx Context, toolName string, inpu
 		}
 	} else {
 		// No circuit breaker - execute directly
-		result, err = a.executor.Execute(ctx, toolName, input)
+		result, err = a.executor.Execute(ctxWithSession, toolName, input)
 	}
 
 	// If execution succeeded and guardrails enabled, clear error record
@@ -1438,6 +1671,13 @@ func (a *Agent) formatToolResult(ctx Context, sessionID string, toolName string,
 		return "Tool execution failed"
 	}
 
+	// CRITICAL FIX: Pin DataReferences returned by tools (like tool_search)
+	// Tools may create their own references in SharedMemoryStore, and we need to pin them
+	// to prevent LRU eviction while the session is active
+	if result.DataReference != nil && a.refTracker != nil {
+		a.refTracker.PinForSession(sessionID, result.DataReference.Id)
+	}
+
 	// Format successful result with smart truncation
 	if result.Data != nil {
 		dataStr := fmt.Sprintf("%v", result.Data)
@@ -1456,9 +1696,10 @@ func (a *Agent) formatToolResult(ctx Context, sessionID string, toolName string,
 			}
 		}
 
-		// CRITICAL: Don't wrap get_tool_result output - it already retrieved data from shared memory
-		// Wrapping it again creates infinite recursion: get_tool_result → DataRef → get_tool_result → DataRef → ...
-		if tokenCount > maxInlineTokens && toolName != "get_tool_result" {
+		// CRITICAL: Don't wrap progressive disclosure tool outputs - they already retrieve data from shared memory
+		// Wrapping them again creates infinite recursion: query_tool_result → DataRef A → query_tool_result(A) → DataRef B → ...
+		// Excluded tools: get_tool_result (metadata), query_tool_result (actual data retrieval)
+		if tokenCount > maxInlineTokens && toolName != "get_tool_result" && toolName != "query_tool_result" {
 			// Large result - store reference and provide summary
 
 			// Try shared memory first (fastest, in-process)
@@ -1493,7 +1734,15 @@ func (a *Agent) formatToolResult(ctx Context, sessionID string, toolName string,
 						a.refTracker.PinForSession(sessionID, dataRef.Id)
 					}
 
-					// Extract summary info for inline display
+					// Get metadata to create rich inline summary (eliminates need for get_tool_result call)
+					meta, metaErr := a.sharedMemory.GetMetadata(dataRef)
+					if metaErr == nil && meta != nil {
+						// Format rich metadata inline (same as executor.go does)
+						richSummary := formatAgentSharedMemoryResult(meta, dataRef.Id, toolName)
+						return richSummary
+					}
+
+					// Fallback to basic summary if metadata unavailable
 					summary := extractDataSummary(result.Data, result.Metadata)
 					return fmt.Sprintf(`✓ %s
 
@@ -1523,8 +1772,87 @@ Token efficiency: %d tokens → ~50 tokens (%.1f%% reduction)`,
 	return "Success"
 }
 
-// extractDataSummary creates a concise summary of tool result data for inline display.
-// Returns metadata-driven summary (row count, columns, etc.) instead of dumping raw data.
+// formatAgentSharedMemoryResult creates a rich inline summary with metadata for agent context.
+// Similar to executor.formatSharedMemoryResultSummary but includes tool name context.
+// This eliminates the need for a separate get_tool_result call - agents get all context immediately.
+func formatAgentSharedMemoryResult(meta *storage.DataMetadata, id string, toolName string) string {
+	var summary strings.Builder
+
+	// Header with tool name, data type and size
+	summary.WriteString(fmt.Sprintf("✓ %s completed: Large %s stored in memory (%d bytes, ~%d tokens)\n\n",
+		toolName, meta.DataType, meta.SizeBytes, meta.EstimatedTokens))
+
+	// Preview section
+	if meta.Preview != nil && (len(meta.Preview.First5) > 0 || len(meta.Preview.Last5) > 0) {
+		summary.WriteString("📋 Preview:\n")
+		if len(meta.Preview.First5) > 0 {
+			previewJSON, _ := json.MarshalIndent(meta.Preview.First5, "", "  ")
+			summary.WriteString(fmt.Sprintf("First 5 items:\n%s\n", string(previewJSON)))
+		}
+		if len(meta.Preview.Last5) > 0 && meta.DataType == "json_array" {
+			previewJSON, _ := json.MarshalIndent(meta.Preview.Last5, "", "  ")
+			summary.WriteString(fmt.Sprintf("\nLast 5 items:\n%s\n", string(previewJSON)))
+		}
+		summary.WriteString("\n")
+	}
+
+	// Schema section (if available)
+	if meta.Schema != nil {
+		switch meta.DataType {
+		case "json_object":
+			if len(meta.Schema.Fields) > 0 {
+				fieldNames := make([]string, 0, len(meta.Schema.Fields))
+				for _, field := range meta.Schema.Fields {
+					fieldNames = append(fieldNames, fmt.Sprintf("%s (%s)", field.Name, field.Type))
+				}
+				summary.WriteString(fmt.Sprintf("📊 Schema: %d fields\n%s\n\n",
+					len(meta.Schema.Fields), strings.Join(fieldNames, ", ")))
+			}
+		case "json_array":
+			summary.WriteString(fmt.Sprintf("📊 Array: %d items\n", meta.Schema.ItemCount))
+			if len(meta.Schema.Fields) > 0 {
+				fieldNames := make([]string, 0, len(meta.Schema.Fields))
+				for _, field := range meta.Schema.Fields {
+					fieldNames = append(fieldNames, fmt.Sprintf("%s (%s)", field.Name, field.Type))
+				}
+				summary.WriteString(fmt.Sprintf("Item schema: %s\n\n", strings.Join(fieldNames, ", ")))
+			}
+		case "text":
+			summary.WriteString(fmt.Sprintf("📊 Text: %d lines\n\n", meta.Schema.ItemCount))
+		}
+	}
+
+	// Retrieval hints - how to access this data
+	summary.WriteString("💡 How to retrieve:\n")
+	switch meta.DataType {
+	case "json_object":
+		summary.WriteString(fmt.Sprintf("⚠️ This json_object is too large (%d bytes) for direct retrieval\n", meta.SizeBytes))
+		summary.WriteString("Use the preview and schema above to understand the structure\n")
+		if meta.Schema != nil && len(meta.Schema.Fields) > 0 {
+			summary.WriteString("Consider which specific fields you need from the object\n")
+		}
+
+	case "json_array":
+		summary.WriteString(fmt.Sprintf("query_tool_result(reference_id='%s', offset=0, limit=100)\n", id))
+		summary.WriteString(fmt.Sprintf("query_tool_result(reference_id='%s', sql='SELECT * FROM results WHERE ...')\n", id))
+		if meta.Schema != nil && meta.Schema.ItemCount > 1000 {
+			summary.WriteString("⚠️ Large dataset - use filtering to avoid context overload\n")
+		}
+
+	case "text":
+		summary.WriteString(fmt.Sprintf("query_tool_result(reference_id='%s', offset=0, limit=100)\n", id))
+		if meta.Schema != nil && meta.Schema.ItemCount > 1000 {
+			summary.WriteString(fmt.Sprintf("⚠️ Large file (%d lines) - paginate to avoid loading all at once\n", meta.Schema.ItemCount))
+		}
+
+	case "csv":
+		summary.WriteString(fmt.Sprintf("query_tool_result(reference_id='%s', sql='SELECT * FROM results WHERE ...')\n", id))
+		summary.WriteString("💡 CSV auto-converts to queryable SQLite table\n")
+	}
+
+	return summary.String()
+}
+
 func extractDataSummary(data interface{}, metadata map[string]interface{}) string {
 	var parts []string
 
@@ -1760,10 +2088,19 @@ func (a *Agent) SetSharedMemory(sharedMemory *storage.SharedMemoryStore) {
 		a.memory.SetSharedMemory(sharedMemory)
 	}
 
+	// EXPERIMENT: get_tool_result removed - inline metadata makes it unnecessary
 	// Re-register GetToolResultTool with the new store
 	// This ensures the tool uses the correct store instance for retrievals
-	if sharedMemory != nil && a.tools != nil {
-		a.tools.Register(NewGetToolResultTool(sharedMemory))
+	// v1.0.1: Pass both memory and SQL stores (SQL store passed as nil here, configured separately)
+	// if sharedMemory != nil && a.tools != nil {
+	// 	a.tools.Register(NewGetToolResultTool(sharedMemory, a.sqlResultStore))
+	// }
+
+	// CRITICAL FIX: Re-register QueryToolResultTool with the new shared memory instance
+	// This fixes the bug where query_tool_result was using an old singleton store while
+	// tool_search was storing data in the new multi-agent server's shared memory
+	if sharedMemory != nil && a.sqlResultStore != nil && a.tools != nil {
+		a.tools.Register(NewQueryToolResultTool(a.sqlResultStore, sharedMemory))
 	}
 
 	// Update reference tracker with new store
@@ -1775,14 +2112,18 @@ func (a *Agent) SetSharedMemory(sharedMemory *storage.SharedMemoryStore) {
 // SetSQLResultStore configures SQL result store for this agent.
 // This enables queryable storage for large SQL results, preventing context blowout.
 func (a *Agent) SetSQLResultStore(sqlStore *storage.SQLResultStore) {
+	// Store reference for later use
+	a.sqlResultStore = sqlStore
+
 	// Inject into tool executor so SQL results go to queryable tables
 	if a.executor != nil {
 		a.executor.SetSQLResultStore(sqlStore)
 	}
 
 	// Register query_tool_result tool if not already registered
+	// v1.0.1: Pass both SQL and memory stores
 	if sqlStore != nil && a.tools != nil {
-		a.tools.Register(NewQueryToolResultTool(sqlStore))
+		a.tools.Register(NewQueryToolResultTool(sqlStore, a.sharedMemory))
 	}
 }
 

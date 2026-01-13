@@ -444,3 +444,108 @@ func TestExpandEnvVars(t *testing.T) {
 	result = expandEnvVars("${NONEXISTENT}")
 	assert.Equal(t, "", result)
 }
+
+// TestIntegerOverflowProtection tests that large values are rejected with proper errors
+// This addresses GitHub security code scanning issue #438 (G115 - integer overflow)
+func TestIntegerOverflowProtection(t *testing.T) {
+	tests := []struct {
+		name        string
+		yamlContent string
+		wantErr     bool
+		errContains string
+	}{
+		{
+			name: "valid max_tokens within range",
+			yamlContent: `
+agent:
+  name: valid_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    max_tokens: 4096
+`,
+			wantErr: false,
+		},
+		{
+			name: "max_tokens at int32 boundary (valid)",
+			yamlContent: `
+agent:
+  name: boundary_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    max_tokens: 2147483647
+`,
+			wantErr: false,
+		},
+		{
+			name: "max_tokens overflow - exceeds int32",
+			yamlContent: `
+agent:
+  name: overflow_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    max_tokens: 2147483648
+`,
+			wantErr:     true,
+			errContains: "invalid LLM config",
+		},
+		{
+			name: "max_iterations overflow",
+			yamlContent: `
+agent:
+  name: overflow_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+  behavior:
+    max_iterations: 2147483648
+`,
+			wantErr:     true,
+			errContains: "invalid behavior config",
+		},
+		{
+			name: "max_history overflow",
+			yamlContent: `
+agent:
+  name: overflow_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+  memory:
+    type: memory
+    max_history: 2147483648
+`,
+			wantErr:     true,
+			errContains: "invalid memory config",
+		},
+		{
+			name: "negative value below int32 minimum",
+			yamlContent: `
+agent:
+  name: overflow_test
+  llm:
+    provider: anthropic
+    model: claude-3-5-sonnet-20241022
+    max_tokens: -2147483649
+`,
+			wantErr:     true,
+			errContains: "invalid LLM config",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config, err := LoadConfigFromString(tt.yamlContent)
+			if tt.wantErr {
+				require.Error(t, err, "expected error for overflow value")
+				assert.Contains(t, err.Error(), tt.errContains)
+				assert.Nil(t, config)
+			} else {
+				require.NoError(t, err)
+				assert.NotNil(t, config)
+			}
+		})
+	}
+}

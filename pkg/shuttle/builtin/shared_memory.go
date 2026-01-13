@@ -66,7 +66,7 @@ func (t *SharedMemoryWriteTool) InputSchema() *shuttle.JSONSchema {
 				WithDefault("global"),
 			"metadata": shuttle.NewObjectSchema(
 				"Optional metadata (key-value pairs)",
-				nil,
+				map[string]*shuttle.JSONSchema{},
 				nil,
 			),
 		},

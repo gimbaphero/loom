@@ -52,6 +52,9 @@ func NewSessionReferenceTracker(sharedMemory *SharedMemoryStore) *SessionReferen
 // If the reference is already pinned for this session, this is a no-op.
 // Empty sessionID or refID are silently ignored (defensive).
 //
+// This increments the RefCount to prevent LRU eviction while the session is active.
+// When the session ends, UnpinSession() will call Release() to decrement RefCount.
+//
 // Thread-safe: Can be called concurrently from multiple goroutines.
 func (t *SessionReferenceTracker) PinForSession(sessionID, refID string) {
 	// Defensive: ignore empty inputs
@@ -69,6 +72,9 @@ func (t *SessionReferenceTracker) PinForSession(sessionID, refID string) {
 			return // Already tracked, nothing to do
 		}
 	}
+
+	// Increment RefCount to prevent eviction (explicit pinning)
+	t.sharedMemory.IncrementRefCount(refID)
 
 	// Add to session's reference list
 	t.sessionRefs[sessionID] = append(refs, refID)

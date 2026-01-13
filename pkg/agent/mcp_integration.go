@@ -118,7 +118,19 @@ func (a *Agent) RegisterMCPTools(ctx context.Context, config MCPServerConfig) er
 	// Convert MCP tools to shuttle.Tool with appropriate truncation
 	tools := make([]shuttle.Tool, len(mcpTools))
 	for i, mcpTool := range mcpTools {
-		tools[i] = adapter.NewMCPToolAdapterWithConfig(config.Client, mcpTool, config.Name, truncationConfig)
+		mcpAdapter := adapter.NewMCPToolAdapterWithConfig(config.Client, mcpTool, config.Name, truncationConfig)
+
+		// CRITICAL: Inject storage backends for progressive disclosure
+		// This enables SQL results to go directly to SQLResultStore (queryable)
+		// instead of SharedMemoryStore (unqueryable json_object)
+		if a.sqlResultStore != nil {
+			mcpAdapter.SetSQLResultStore(a.sqlResultStore)
+		}
+		if a.sharedMemory != nil {
+			mcpAdapter.SetSharedMemory(a.sharedMemory)
+		}
+
+		tools[i] = mcpAdapter
 	}
 
 	// Register each tool
@@ -233,8 +245,17 @@ func (a *Agent) RegisterMCPServer(ctx context.Context, mcpMgr *manager.Manager, 
 
 	// Register filtered tools with appropriate truncation
 	for _, tool := range toolsToRegister {
-		shuttleTool := adapter.NewMCPToolAdapterWithConfig(client, tool, serverName, truncationConfig)
-		a.RegisterTool(shuttleTool)
+		mcpAdapter := adapter.NewMCPToolAdapterWithConfig(client, tool, serverName, truncationConfig)
+
+		// CRITICAL: Inject storage backends for progressive disclosure
+		if a.sqlResultStore != nil {
+			mcpAdapter.SetSQLResultStore(a.sqlResultStore)
+		}
+		if a.sharedMemory != nil {
+			mcpAdapter.SetSharedMemory(a.sharedMemory)
+		}
+
+		a.RegisterTool(mcpAdapter)
 		logger.Debug("registered MCP tool",
 			zap.String("server", serverName),
 			zap.String("tool", tool.Name))
@@ -295,7 +316,17 @@ func (a *Agent) RegisterMCPTool(ctx context.Context, mcpMgr *manager.Manager, se
 	// Find the specific tool
 	for _, tool := range tools {
 		if tool.Name == toolName {
-			shuttleTool := adapter.NewMCPToolAdapterWithConfig(client, tool, serverName, truncationConfig)
+			mcpAdapter := adapter.NewMCPToolAdapterWithConfig(client, tool, serverName, truncationConfig)
+
+			// CRITICAL: Inject storage backends for progressive disclosure
+			if a.sqlResultStore != nil {
+				mcpAdapter.SetSQLResultStore(a.sqlResultStore)
+			}
+			if a.sharedMemory != nil {
+				mcpAdapter.SetSharedMemory(a.sharedMemory)
+			}
+
+			shuttleTool := mcpAdapter
 			a.RegisterTool(shuttleTool)
 
 			logger.Info("Registered MCP tool",

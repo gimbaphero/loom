@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -29,6 +30,7 @@ import (
 	"github.com/teradata-labs/loom/pkg/mcp/client"
 	"github.com/teradata-labs/loom/pkg/mcp/protocol"
 	"github.com/teradata-labs/loom/pkg/shuttle"
+	"github.com/teradata-labs/loom/pkg/storage"
 )
 
 // Result truncation and caching configuration
@@ -94,10 +96,12 @@ type TruncationConfig struct {
 
 // MCPToolAdapter wraps an MCP tool as a shuttle.Tool
 type MCPToolAdapter struct {
-	client     *client.Client
-	tool       protocol.Tool
-	serverName string           // Used as backend identifier
-	truncation TruncationConfig // Result truncation settings
+	client       *client.Client
+	tool         protocol.Tool
+	serverName   string                     // Used as backend identifier
+	truncation   TruncationConfig           // Result truncation settings
+	sqlStore     *storage.SQLResultStore    // For storing large SQL results
+	sharedMemory *storage.SharedMemoryStore // For storing other large data
 }
 
 // NewMCPToolAdapter creates a new adapter that wraps an MCP tool
@@ -111,7 +115,21 @@ func NewMCPToolAdapter(client *client.Client, tool protocol.Tool, serverName str
 			MaxResultRows:  DefaultMaxResultRows,
 			Enabled:        true, // Enable by default
 		},
+		sqlStore:     nil, // Will be set by SetSQLResultStore if needed
+		sharedMemory: nil, // Will be set by SetSharedMemory if needed
 	}
+}
+
+// SetSQLResultStore configures SQL result store for this adapter.
+// Enables automatic storage of large SQL results.
+func (a *MCPToolAdapter) SetSQLResultStore(store *storage.SQLResultStore) {
+	a.sqlStore = store
+}
+
+// SetSharedMemory configures shared memory store for this adapter.
+// Enables automatic storage of large non-SQL data.
+func (a *MCPToolAdapter) SetSharedMemory(store *storage.SharedMemoryStore) {
+	a.sharedMemory = store
 }
 
 // NewMCPToolAdapterWithConfig creates a new adapter with custom truncation config
@@ -146,20 +164,20 @@ func (a *MCPToolAdapter) InputSchema() *shuttle.JSONSchema {
 	// Convert MCP InputSchema (map[string]interface{}) to shuttle.JSONSchema
 	if len(a.tool.InputSchema) == 0 {
 		// No schema - accept any object
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	// Serialize and deserialize to convert types
 	schemaBytes, err := json.Marshal(a.tool.InputSchema)
 	if err != nil {
 		// Fallback to empty schema
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	var shuttleSchema shuttle.JSONSchema
 	if err := json.Unmarshal(schemaBytes, &shuttleSchema); err != nil {
 		// Fallback to empty schema
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	// Convert property names from camelCase to snake_case for LLM-friendliness
@@ -181,15 +199,19 @@ func (a *MCPToolAdapter) InputSchema() *shuttle.JSONSchema {
 		}
 	}
 
+	// Normalize schema to ensure JSON Schema draft 2020-12 compliance
+	// This is critical for Bedrock which strictly validates schemas
+	normalized := shuttle.NormalizeSchema(&shuttleSchema)
+
 	// Debug logging to see what MCP provides and what we convert to
 	if os.Getenv("LOOM_DEBUG_BEDROCK_TOOLS") == "1" {
 		mcpJSON, _ := json.MarshalIndent(a.tool.InputSchema, "", "  ")
-		shuttleJSON, _ := json.MarshalIndent(&shuttleSchema, "", "  ")
-		fmt.Printf("[MCP] Tool: %s\nOriginal schema:\n%s\nConverted:\n%s\n\n",
-			a.tool.Name, string(mcpJSON), string(shuttleJSON))
+		normalizedJSON, _ := json.MarshalIndent(normalized, "", "  ")
+		fmt.Printf("[MCP] Tool: %s\nOriginal schema:\n%s\nNormalized:\n%s\n\n",
+			a.tool.Name, string(mcpJSON), string(normalizedJSON))
 	}
 
-	return &shuttleSchema
+	return normalized
 }
 
 // Execute implements shuttle.Tool
@@ -251,6 +273,37 @@ func (a *MCPToolAdapter) Execute(ctx context.Context, params map[string]interfac
 
 	// Convert MCP content to shuttle result data
 	data := convertMCPContent(mcpResult.Content)
+
+	// CRITICAL: Detect SQL results and store to SQLResultStore
+	// This prevents 510KB results from entering context
+	if a.sqlStore != nil {
+		if sqlData, isSQLResult := a.detectAndExtractSQLResult(data); isSQLResult {
+			// Generate unique ID for this result
+			resultID := fmt.Sprintf("mcp_%s_%d", a.serverName, time.Now().UnixNano())
+
+			// Store SQL result directly to database
+			ref, err := a.sqlStore.Store(resultID, sqlData)
+			if err == nil {
+				// Success - return DataRef instead of full data
+				return &shuttle.Result{
+					Success:         true,
+					DataReference:   ref,
+					ExecutionTimeMs: executionTime,
+					Metadata: map[string]interface{}{
+						"mcp_server":    a.serverName,
+						"tool_name":     a.tool.Name,
+						"sql_result":    true,
+						"rows":          len(sqlData["rows"].([]interface{})),
+						"columns":       len(sqlData["columns"].([]interface{})),
+						"stored_in_sql": true,
+					},
+					Data: fmt.Sprintf("✓ Query returned %d rows (%d columns). Use query_tool_result to filter/paginate.",
+						len(sqlData["rows"].([]interface{})), len(sqlData["columns"].([]interface{}))),
+				}, nil
+			}
+			// If storage failed, fall through to normal truncation
+		}
+	}
 
 	// Apply result truncation (#1: Truncate Tool Results)
 	var truncated bool
@@ -530,4 +583,82 @@ func normalizeParametersToCamelCase(params map[string]interface{}) map[string]in
 		normalized[toCamelCase(key)] = value
 	}
 	return normalized
+}
+
+// detectAndExtractSQLResult detects if MCP result contains SQL data and extracts it.
+// Returns (sqlData map[string]interface{}, isSQLResult bool)
+// sqlData contains "columns" and "rows" keys if SQL result detected.
+func (a *MCPToolAdapter) detectAndExtractSQLResult(data interface{}) (map[string]interface{}, bool) {
+	// SQL results from MCP tools typically come as text with embedded JSON
+	// Format: "✓ SQL executed successfully\n\nOutput:\n{\"columns\":[...],\"rows\":[[...]]}"
+
+	str, ok := data.(string)
+	if !ok {
+		return nil, false
+	}
+
+	// Look for JSON pattern with columns and rows
+	// Use regex to find JSON object containing both columns and rows arrays
+	jsonPattern := regexp.MustCompile(`\{[^{}]*"columns"\s*:\s*\[[^\]]*\][^{}]*"rows"\s*:\s*\[`)
+	if !jsonPattern.MatchString(str) {
+		return nil, false
+	}
+
+	// Find the start of the JSON object
+	jsonStart := strings.Index(str, `{"columns"`)
+	if jsonStart == -1 {
+		// Try alternative: columns might come second
+		jsonStart = strings.Index(str, `{"rows"`)
+		if jsonStart == -1 {
+			return nil, false
+		}
+	}
+
+	// Extract JSON substring (from { to end)
+	jsonStr := str[jsonStart:]
+
+	// Find the matching closing brace
+	braceCount := 0
+	jsonEnd := -1
+	for i, ch := range jsonStr {
+		if ch == '{' {
+			braceCount++
+		} else if ch == '}' {
+			braceCount--
+			if braceCount == 0 {
+				jsonEnd = i + 1
+				break
+			}
+		}
+	}
+
+	if jsonEnd == -1 {
+		return nil, false
+	}
+
+	jsonStr = jsonStr[:jsonEnd]
+
+	// Parse JSON
+	var sqlData map[string]interface{}
+	if err := json.Unmarshal([]byte(jsonStr), &sqlData); err != nil {
+		return nil, false
+	}
+
+	// Validate that it has both columns and rows
+	columns, hasColumns := sqlData["columns"]
+	rows, hasRows := sqlData["rows"]
+
+	if !hasColumns || !hasRows {
+		return nil, false
+	}
+
+	// Validate types
+	if _, ok := columns.([]interface{}); !ok {
+		return nil, false
+	}
+	if _, ok := rows.([]interface{}); !ok {
+		return nil, false
+	}
+
+	return sqlData, true
 }
