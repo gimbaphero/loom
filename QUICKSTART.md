@@ -397,7 +397,7 @@ cargo install just --force
 
 ## Next Steps
 
-- **Read the docs**: https://teradata-labs.github.io/loom/
+- **Read the docs**: [Browse the documentation](docs/)
 - **Try examples**: `./examples/README.md`
 - **Join the community**: https://github.com/teradata-labs/loom/issues
 - **Add Hawk observability**: https://github.com/teradata-labs/hawk
@@ -461,7 +461,7 @@ Remove-Item -Recurse loom
 
 ## Support
 
-- **Documentation**: https://teradata-labs.github.io/loom/
+- **Documentation**: [Browse the docs](docs/)
 - **GitHub Issues**: https://github.com/teradata-labs/loom/issues
 - **Examples**: https://github.com/teradata-labs/loom/tree/main/examples
 

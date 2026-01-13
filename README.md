@@ -227,7 +227,7 @@ looms judge evaluate-stream \
 - Performance judges (efficiency, cost)
 - Custom judges (domain-specific criteria)
 
-See [Judge CLI Guide](https://teradata-labs.github.io/loom/en/docs/guides/judge_cli_guide/) and [Multi-Judge Evaluation](https://teradata-labs.github.io/loom/en/docs/guides/multi-judge-evaluation/).
+See [Judge CLI Guide](docs/guides/judge_cli_guide.md) and [Multi-Judge Evaluation](docs/guides/multi-judge-evaluation.md).
 
 ### Learning Agents
 
@@ -264,7 +264,7 @@ loom --thread weaver
 - Example-based learning
 - Metric-driven improvement
 
-See [Learning Agent Guide](https://teradata-labs.github.io/loom/en/docs/guides/learning-agent-guide/) and [Judge-DSPy Integration](https://teradata-labs.github.io/loom/en/docs/guides/judge-dspy-integration/).
+See [Learning Agent Guide](docs/guides/learning-agent-guide.md) and [Judge-DSPy Integration](docs/guides/judge-dspy-integration.md).
 
 ### Pattern Library
 
@@ -445,7 +445,7 @@ When multiple agents are present in a conversation:
 +------------------+     +------------------+     +------------------+
 ```
 
-See [Architecture Guide](https://teradata-labs.github.io/loom/en/docs/architecture/) for detailed design.
+See [Architecture Guide](docs/architecture/) for detailed design.
 
 ---
 
@@ -453,19 +453,19 @@ See [Architecture Guide](https://teradata-labs.github.io/loom/en/docs/architectu
 
 ### Quick Links
 
-- [Getting Started Guide](https://teradata-labs.github.io/loom/en/docs/guides/quickstart/)
-- [Architecture Overview](https://teradata-labs.github.io/loom/en/docs/architecture/)
-- [Features Guide](https://teradata-labs.github.io/loom/en/docs/guides/features/)
+- [Getting Started Guide](docs/guides/quickstart.md)
+- [Architecture Overview](docs/architecture/)
+- [Features Guide](docs/guides/features.md)
 - [API Reference](https://pkg.go.dev/github.com/teradata-labs/loom)
 
 ### Guides
 
-- [Backend Implementation](https://teradata-labs.github.io/loom/en/docs/reference/backend/) - Implementing `ExecutionBackend`
-- [Pattern System](https://teradata-labs.github.io/loom/en/docs/reference/patterns/) - Creating and using patterns
-- [Observability Setup](https://teradata-labs.github.io/loom/en/docs/guides/integration/observability/) - Hawk integration
-- [Prompt Management](https://teradata-labs.github.io/loom/en/docs/guides/integration/prompt-integration/) - Promptio integration
-- [Streaming](https://teradata-labs.github.io/loom/en/docs/reference/streaming/) - Real-time progress events
-- [Meta-Agent Usage](https://teradata-labs.github.io/loom/en/docs/guides/meta-agent-usage/) - Advanced weaver usage
+- [Backend Implementation](docs/reference/backend.md) - Implementing `ExecutionBackend`
+- [Pattern System](docs/reference/patterns.md) - Creating and using patterns
+- [Observability Setup](docs/guides/integration/observability.md) - Hawk integration
+- [Prompt Management](docs/guides/integration/prompt-integration.md) - Promptio integration
+- [Streaming](docs/reference/streaming.md) - Real-time progress events
+- [Meta-Agent Usage](docs/guides/meta-agent-usage.md) - Advanced weaver usage
 
 ### Examples
 
@@ -513,7 +513,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 ## Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/teradata-labs/loom/issues)
-- **Documentation**: [https://teradata-labs.github.io/loom/](https://teradata-labs.github.io/loom/)
+- **Documentation**: [Browse the docs](docs/)
 
 ---
 
