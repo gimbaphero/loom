@@ -164,20 +164,20 @@ func (a *MCPToolAdapter) InputSchema() *shuttle.JSONSchema {
 	// Convert MCP InputSchema (map[string]interface{}) to shuttle.JSONSchema
 	if len(a.tool.InputSchema) == 0 {
 		// No schema - accept any object
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	// Serialize and deserialize to convert types
 	schemaBytes, err := json.Marshal(a.tool.InputSchema)
 	if err != nil {
 		// Fallback to empty schema
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	var shuttleSchema shuttle.JSONSchema
 	if err := json.Unmarshal(schemaBytes, &shuttleSchema); err != nil {
 		// Fallback to empty schema
-		return shuttle.NewObjectSchema("", nil, nil)
+		return shuttle.NewObjectSchema("", map[string]*shuttle.JSONSchema{}, nil)
 	}
 
 	// Convert property names from camelCase to snake_case for LLM-friendliness

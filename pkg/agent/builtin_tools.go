@@ -1089,7 +1089,8 @@ func (t *RecordFindingTool) InputSchema() *shuttle.JSONSchema {
 				Description: "Hierarchical key for the finding (e.g., 'table.column.metric')",
 			},
 			"value": {
-				Description: "The actual data (number, string, array, or object)",
+				Type:        "string",
+				Description: "The actual data as JSON string (number, string, array, or object)",
 			},
 			"category": {
 				Type:        "string",

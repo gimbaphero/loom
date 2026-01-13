@@ -61,7 +61,7 @@ func (t *GRPCClientTool) InputSchema() *shuttle.JSONSchema {
 			"address": shuttle.NewStringSchema("gRPC server address (e.g., 'localhost:9090')"),
 			"service": shuttle.NewStringSchema("Service name (e.g., 'loom.v1.LoomService')"),
 			"method":  shuttle.NewStringSchema("Method name (e.g., 'Weave' or 'GetHealth')"),
-			"request": shuttle.NewObjectSchema("Request parameters as JSON object", nil, nil),
+			"request": shuttle.NewObjectSchema("Request parameters as JSON object", map[string]*shuttle.JSONSchema{}, nil),
 			"timeout_seconds": shuttle.NewNumberSchema("Call timeout in seconds (default: 30)").
 				WithDefault(30),
 			"tls": shuttle.NewBooleanSchema("Use TLS connection (default: false)").

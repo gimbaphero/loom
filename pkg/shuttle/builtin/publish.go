@@ -60,7 +60,7 @@ func (t *PublishTool) InputSchema() *shuttle.JSONSchema {
 		map[string]*shuttle.JSONSchema{
 			"topic":    shuttle.NewStringSchema("Topic to publish to (e.g., 'party-chat')"),
 			"message":  shuttle.NewStringSchema("Message content to broadcast"),
-			"metadata": shuttle.NewObjectSchema("Optional metadata key-value pairs", nil, nil),
+			"metadata": shuttle.NewObjectSchema("Optional metadata key-value pairs", map[string]*shuttle.JSONSchema{}, nil),
 		},
 		[]string{"topic", "message"},
 	)
