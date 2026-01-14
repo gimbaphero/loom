@@ -147,7 +147,7 @@ loom --thread code-review-assistant
 ```
 
 **API Access:**
-- **gRPC**: `localhost:9090` (native protocol)
+- **gRPC**: `localhost:60051` (native protocol)
 - **HTTP/REST**: `http://localhost:5006` (REST API + SSE streaming)
 - **Swagger UI**: `http://localhost:5006/swagger-ui` (interactive API docs)
 - **OpenAPI Spec**: `http://localhost:5006/openapi.json`
