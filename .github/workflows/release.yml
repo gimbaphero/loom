@@ -180,6 +180,9 @@ jobs:
       - name: Generate Proto Files
         run: buf generate
 
+      - name: Generate Weaver Template
+        run: go run ./cmd/generate-weaver
+
       - name: Build binary
         env:
           GOOS: ${{ matrix.goos }}
