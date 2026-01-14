@@ -1,0 +1,27 @@
+# Created using wingetcreate
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.6.0.schema.json
+
+PackageIdentifier: Teradata.Loom
+PackageVersion: 1.0.1
+InstallerType: zip
+InstallModes:
+- silent
+UpgradeBehavior: install
+ReleaseDate: 2026-01-14
+Installers:
+- Architecture: x64
+  InstallerUrl: https://github.com/teradata-labs/loom/releases/download/v1.0.1/loom-windows-amd64.exe.zip
+  InstallerSha256: ''
+  NestedInstallerType: portable
+  NestedInstallerFiles:
+  - RelativeFilePath: loom-windows-amd64.exe
+    PortableCommandAlias: loom
+- Architecture: x64
+  InstallerUrl: https://github.com/teradata-labs/loom/releases/download/v1.0.1/looms-windows-amd64.exe.zip
+  InstallerSha256: ''
+  NestedInstallerType: portable
+  NestedInstallerFiles:
+  - RelativeFilePath: looms-windows-amd64.exe
+    PortableCommandAlias: looms
+ManifestType: installer
+ManifestVersion: 1.6.0
