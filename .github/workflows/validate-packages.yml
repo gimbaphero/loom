@@ -1,5 +1,8 @@
 name: Validate Package Manifests
 
+permissions:
+  contents: read
+
 on:
   # Validate on pull requests
   pull_request:
