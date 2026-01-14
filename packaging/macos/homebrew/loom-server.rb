@@ -7,10 +7,10 @@ class LoomServer < Formula
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/teradata-labs/loom/releases/download/v1.0.1/looms-darwin-arm64.tar.gz"
-      sha256 ""  # Update with actual SHA256
+      sha256 "b68621fe2c62a6f41c12c7e80f424d9f1c0fbda1323d807034db55a5207a1e95"
     else
       url "https://github.com/teradata-labs/loom/releases/download/v1.0.1/looms-darwin-amd64.tar.gz"
-      sha256 ""  # Update with actual SHA256
+      sha256 "88d1a857acebf48b5cfb08ba8df50d82ed810ffe1d19a5161937b25bf2e4895b"
     end
   end
 
