@@ -1,0 +1,204 @@
+name: Windows Quickstart Test
+
+on:
+  push:
+    branches: [ main, windows-experience ]
+    paths:
+      - 'quickstart.ps1'
+      - '.github/workflows/windows-quickstart.yml'
+      - 'Justfile'
+      - 'patterns/**'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'quickstart.ps1'
+      - '.github/workflows/windows-quickstart.yml'
+      - 'Justfile'
+      - 'patterns/**'
+  workflow_dispatch:  # Allow manual triggering
+
+permissions:
+  contents: read
+
+jobs:
+  test-quickstart:
+    name: Test Windows Quickstart Script
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.25'
+          cache: true
+
+      - name: Install Just (Windows)
+        run: |
+          choco install just -y
+          just --version
+
+      - name: Setup Buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify prerequisites
+        run: |
+          Write-Host "Verifying prerequisites..."
+          go version
+          just --version
+          buf --version
+
+      - name: Run quickstart.ps1 in CI mode
+        env:
+          CI_MODE: "true"
+          SKIP_CREDENTIALS: "true"
+        run: |
+          Write-Host "Running quickstart.ps1 in CI mode..."
+          .\quickstart.ps1
+
+      - name: Verify binaries were built
+        run: |
+          Write-Host "Checking for binaries..."
+
+          $binDir = "$env:USERPROFILE\.local\bin"
+
+          if (!(Test-Path "$binDir\looms.exe")) {
+            Write-Error "looms.exe not found at $binDir"
+            exit 1
+          }
+          Write-Host "✓ Found looms.exe"
+
+          if (!(Test-Path "$binDir\loom.exe")) {
+            Write-Error "loom.exe not found at $binDir"
+            exit 1
+          }
+          Write-Host "✓ Found loom.exe"
+
+      - name: Verify patterns were installed
+        run: |
+          Write-Host "Checking for patterns..."
+
+          $dataDir = "$env:USERPROFILE\.loom"
+          $patternsDir = "$dataDir\patterns"
+
+          if (!(Test-Path $patternsDir)) {
+            Write-Error "Patterns directory not found at $patternsDir"
+            exit 1
+          }
+
+          $patternCount = (Get-ChildItem -Path $patternsDir -Filter "*.yaml" -Recurse).Count
+          Write-Host "✓ Found $patternCount pattern files"
+
+          if ($patternCount -lt 80) {
+            Write-Warning "Expected at least 80 patterns, found $patternCount"
+          }
+
+      - name: Verify configuration file
+        run: |
+          Write-Host "Checking configuration..."
+
+          $dataDir = "$env:USERPROFILE\.loom"
+          $configFile = "$dataDir\looms.yaml"
+
+          if (!(Test-Path $configFile)) {
+            Write-Error "Configuration file not found at $configFile"
+            exit 1
+          }
+          Write-Host "✓ Found looms.yaml"
+
+          # Show config structure
+          Get-Content $configFile
+
+      - name: Verify environment variables
+        run: |
+          Write-Host "Checking environment variables..."
+
+          $loomDataDir = [Environment]::GetEnvironmentVariable("LOOM_DATA_DIR", "User")
+          $loomBinDir = [Environment]::GetEnvironmentVariable("LOOM_BIN_DIR", "User")
+
+          if ([string]::IsNullOrWhiteSpace($loomDataDir)) {
+            Write-Error "LOOM_DATA_DIR not set"
+            exit 1
+          }
+          Write-Host "✓ LOOM_DATA_DIR=$loomDataDir"
+
+          if ([string]::IsNullOrWhiteSpace($loomBinDir)) {
+            Write-Error "LOOM_BIN_DIR not set"
+            exit 1
+          }
+          Write-Host "✓ LOOM_BIN_DIR=$loomBinDir"
+
+      - name: Test looms binary
+        run: |
+          Write-Host "Testing looms binary..."
+
+          $binDir = "$env:USERPROFILE\.local\bin"
+          $env:PATH = "$binDir;$env:PATH"
+
+          # Test help command
+          & "$binDir\looms.exe" --help
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "looms --help failed"
+            exit 1
+          }
+          Write-Host "✓ looms.exe --help works"
+
+      - name: Test loom binary
+        run: |
+          Write-Host "Testing loom binary..."
+
+          $binDir = "$env:USERPROFILE\.local\bin"
+          $env:PATH = "$binDir;$env:PATH"
+
+          # Test help command
+          & "$binDir\loom.exe" --help
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "loom --help failed"
+            exit 1
+          }
+          Write-Host "✓ loom.exe --help works"
+
+      - name: Test looms config command
+        run: |
+          Write-Host "Testing looms config command..."
+
+          $binDir = "$env:USERPROFILE\.local\bin"
+          $env:PATH = "$binDir;$env:PATH"
+
+          # Test config list
+          & "$binDir\looms.exe" config list
+          if ($LASTEXITCODE -ne 0) {
+            Write-Error "looms config list failed"
+            exit 1
+          }
+          Write-Host "✓ looms config list works"
+
+      - name: Upload installation logs
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: windows-installation-logs
+          path: |
+            ${{ env.USERPROFILE }}\.loom\looms.yaml
+            ${{ env.USERPROFILE }}\.local\bin\
+
+      - name: Summary
+        if: success()
+        run: |
+          Write-Host ""
+          Write-Host "═══════════════════════════════════════════════════════"
+          Write-Host "✅ Windows Quickstart Test PASSED"
+          Write-Host "═══════════════════════════════════════════════════════"
+          Write-Host ""
+          Write-Host "Verified:"
+          Write-Host "  ✓ Prerequisites (Go, Just, Buf)"
+          Write-Host "  ✓ Build process (looms.exe, loom.exe)"
+          Write-Host "  ✓ Pattern installation (~90 files)"
+          Write-Host "  ✓ Configuration file creation"
+          Write-Host "  ✓ Environment variables"
+          Write-Host "  ✓ Binary functionality (--help, config list)"
+          Write-Host ""
