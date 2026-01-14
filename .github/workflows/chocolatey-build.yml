@@ -1,0 +1,219 @@
+name: Build and Publish Chocolatey Package
+
+permissions:
+  contents: read
+
+on:
+  # Run on release tags (v1.0.1, v1.0.2, etc.)
+  push:
+    tags:
+      - 'v*.*.*'
+
+  # Allow manual trigger for testing
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to Chocolatey (requires API key secret)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  build-and-test:
+    name: Build and Test Chocolatey Package
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Chocolatey is installed
+        shell: pwsh
+        run: |
+          Write-Host "Chocolatey version:"
+          choco --version
+
+      - name: Build Chocolatey package
+        shell: pwsh
+        run: |
+          Write-Host "Building Chocolatey package..."
+          cd packaging/windows/chocolatey
+          choco pack
+
+          # Verify .nupkg was created
+          $nupkg = Get-ChildItem -Filter "*.nupkg" | Select-Object -First 1
+          if (!$nupkg) {
+            throw "Failed to create .nupkg file"
+          }
+
+          Write-Host "✓ Successfully created: $($nupkg.Name)"
+          Write-Host "  Size: $([math]::Round($nupkg.Length / 1KB, 2)) KB"
+
+      - name: Test package installation
+        shell: pwsh
+        run: |
+          Write-Host "Testing package installation..."
+          cd packaging/windows/chocolatey
+
+          # Install from local package
+          choco install loom -source . -y --no-progress
+
+          Write-Host ""
+          Write-Host "Verifying installation..."
+
+          # Check that binaries are accessible
+          $loomPath = (Get-Command loom -ErrorAction SilentlyContinue).Source
+          $loomsPath = (Get-Command looms -ErrorAction SilentlyContinue).Source
+
+          if (!$loomPath) {
+            throw "loom command not found after installation"
+          }
+
+          if (!$loomsPath) {
+            throw "looms command not found after installation"
+          }
+
+          Write-Host "✓ loom command found at: $loomPath"
+          Write-Host "✓ looms command found at: $loomsPath"
+
+          # Test binaries execute
+          Write-Host ""
+          Write-Host "Testing loom binary..."
+          loom --version
+
+          Write-Host ""
+          Write-Host "Testing looms binary..."
+          looms --version
+
+          Write-Host ""
+          Write-Host "✓ Both binaries execute successfully"
+
+      - name: Verify Loom data directory
+        shell: pwsh
+        run: |
+          Write-Host "Checking Loom data directory..."
+
+          $loomDir = "$env:USERPROFILE\.loom"
+          $patternsDir = "$loomDir\patterns"
+
+          if (!(Test-Path $loomDir)) {
+            throw "Loom data directory not created: $loomDir"
+          }
+
+          if (!(Test-Path $patternsDir)) {
+            throw "Patterns directory not created: $patternsDir"
+          }
+
+          $patternCount = (Get-ChildItem -Path $patternsDir -Filter "*.yaml" -Recurse).Count
+
+          Write-Host "✓ Loom data directory created: $loomDir"
+          Write-Host "✓ Patterns directory created: $patternsDir"
+          Write-Host "✓ Installed $patternCount pattern files"
+
+          # Check environment variable
+          $loomDataDir = [Environment]::GetEnvironmentVariable("LOOM_DATA_DIR", "User")
+          if ($loomDataDir -ne $loomDir) {
+            Write-Warning "LOOM_DATA_DIR not set correctly. Expected: $loomDir, Got: $loomDataDir"
+          } else {
+            Write-Host "✓ LOOM_DATA_DIR environment variable set correctly"
+          }
+
+      - name: Test package uninstallation
+        shell: pwsh
+        run: |
+          Write-Host "Testing package uninstallation..."
+          choco uninstall loom -y --no-progress
+
+          # Verify shims are removed
+          $loomPath = (Get-Command loom -ErrorAction SilentlyContinue).Source
+          $loomsPath = (Get-Command looms -ErrorAction SilentlyContinue).Source
+
+          if ($loomPath) {
+            throw "loom command still accessible after uninstall"
+          }
+
+          if ($loomsPath) {
+            throw "looms command still accessible after uninstall"
+          }
+
+          Write-Host "✓ Package uninstalled successfully"
+          Write-Host "✓ Binaries removed from PATH"
+
+          # Note: We don't remove user data during uninstall (expected behavior)
+          Write-Host ""
+          Write-Host "Note: User data in $env:USERPROFILE\.loom is preserved (expected)"
+
+      - name: Upload Chocolatey package
+        uses: actions/upload-artifact@v4
+        with:
+          name: chocolatey-package
+          path: packaging/windows/chocolatey/*.nupkg
+          retention-days: 30
+
+      - name: Package info
+        shell: pwsh
+        run: |
+          cd packaging/windows/chocolatey
+          $nupkg = Get-ChildItem -Filter "*.nupkg" | Select-Object -First 1
+
+          Write-Host ""
+          Write-Host "============================================================" -ForegroundColor Cyan
+          Write-Host "  Chocolatey Package Built Successfully!" -ForegroundColor Green
+          Write-Host "============================================================" -ForegroundColor Cyan
+          Write-Host ""
+          Write-Host "Package: $($nupkg.Name)"
+          Write-Host "Size: $([math]::Round($nupkg.Length / 1KB, 2)) KB"
+          Write-Host ""
+
+  publish:
+    name: Publish to Chocolatey
+    needs: build-and-test
+    runs-on: windows-latest
+    # Only publish on release tags or manual trigger with publish=true
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chocolatey-package
+
+      - name: Verify API key is configured
+        shell: pwsh
+        run: |
+          if ([string]::IsNullOrEmpty("${{ secrets.CHOCOLATEY_API_KEY }}")) {
+            throw "CHOCOLATEY_API_KEY secret is not configured. Go to Settings > Secrets > Actions to add it."
+          }
+          Write-Host "OK: API key is configured"
+
+      - name: Push to Chocolatey
+        shell: pwsh
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCOLATEY_API_KEY }}
+        run: |
+          $nupkg = Get-ChildItem -Filter "*.nupkg" | Select-Object -First 1
+
+          if (!$nupkg) {
+            throw "No .nupkg file found"
+          }
+
+          Write-Host "Publishing $($nupkg.Name) to Chocolatey..."
+          Write-Host ""
+
+          # Set API key
+          choco apikey --key $env:CHOCO_API_KEY --source https://push.chocolatey.org/
+
+          # Push package
+          choco push $nupkg.Name --source https://push.chocolatey.org/
+
+          Write-Host ""
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host "  Package submitted to Chocolatey!" -ForegroundColor Green
+          Write-Host "============================================================" -ForegroundColor Green
+          Write-Host ""
+          Write-Host "Next steps:" -ForegroundColor Yellow
+          Write-Host "  1. Human moderators will review (24-72 hours)"
+          Write-Host "  2. They may leave comments/feedback"
+          Write-Host "  3. Once approved, users can: choco install loom"
+          Write-Host ""
+          Write-Host "Track status at:" -ForegroundColor Cyan
+          Write-Host "  https://community.chocolatey.org/packages/loom"
+          Write-Host ""

@@ -52,7 +52,7 @@ try {
     if (Test-Path $patternsSource) {
         Copy-Item -Path "$patternsSource\*" -Destination $patternsDir -Recurse -Force
         $patternCount = (Get-ChildItem -Path $patternsDir -Filter "*.yaml" -Recurse).Count
-        Write-Host "✓ Installed $patternCount pattern files to $patternsDir" -ForegroundColor Green
+        Write-Host "OK: Installed $patternCount pattern files to $patternsDir" -ForegroundColor Green
     } else {
         Write-Warning "Patterns directory not found in archive, skipping pattern installation"
     }
@@ -69,14 +69,14 @@ try {
 Install-ChocolateyEnvironmentVariable -VariableName 'LOOM_DATA_DIR' -VariableValue $loomDataDir -VariableType 'User'
 
 Write-Host ""
-Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host "  Loom installed successfully!" -ForegroundColor Green
-Write-Host "═══════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "============================================================" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "Installed:" -ForegroundColor Yellow
-Write-Host "  • loom - TUI client for connecting to agents"
-Write-Host "  • looms - Multi-agent server with gRPC/HTTP APIs"
-Write-Host "  • Patterns in: $patternsDir"
+Write-Host "  - loom - TUI client for connecting to agents"
+Write-Host "  - looms - Multi-agent server with gRPC/HTTP APIs"
+Write-Host "  - Patterns in: $patternsDir"
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Yellow
 Write-Host "  1. Configure an LLM provider:"

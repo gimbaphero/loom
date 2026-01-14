@@ -12,10 +12,10 @@ Uninstall-ChocolateyEnvironmentVariable -VariableName 'LOOM_DATA_DIR' -VariableT
 Write-Host "Loom has been uninstalled." -ForegroundColor Green
 Write-Host ""
 Write-Host "Note: The following were NOT removed (manual cleanup required):" -ForegroundColor Yellow
-Write-Host "  • Loom data directory: $env:USERPROFILE\.loom"
-Write-Host "  • Patterns: $env:USERPROFILE\.loom\patterns"
-Write-Host "  • Configuration: $env:USERPROFILE\.loom\looms.yaml"
-Write-Host "  • Database: $env:USERPROFILE\.loom\loom.db"
+Write-Host "  - Loom data directory: $env:USERPROFILE\.loom"
+Write-Host "  - Patterns: $env:USERPROFILE\.loom\patterns"
+Write-Host "  - Configuration: $env:USERPROFILE\.loom\looms.yaml"
+Write-Host "  - Database: $env:USERPROFILE\.loom\loom.db"
 Write-Host ""
 Write-Host "To remove all Loom data:" -ForegroundColor Cyan
 Write-Host "  Remove-Item -Path `"$env:USERPROFILE\.loom`" -Recurse -Force"
