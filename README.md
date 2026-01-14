@@ -9,6 +9,8 @@ A Go framework for building autonomous LLM agent threads with **natural language
 
 **Version**: v1.0.0
 
+> **Note**: Loom is in active development. Expect frequent updates, new features, and improvements. The API is stabilizing but may have minor changes as we refine the framework based on user feedback.
+
 **Quality Metrics** (verified 2026-01-08):
 - 2252+ test functions across 244 test files
 - 73 packages with test coverage
