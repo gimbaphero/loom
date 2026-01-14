@@ -1,13 +1,13 @@
 # Loom
 
-A Go framework for building autonomous LLM agent threads with **natural language agent creation**, pattern-guided learning, and multi-agent orchestration.
+A Go framework for building autonomous LLM agent threads with **natural language agent creation**, pattern-guided learning, autonomous agent improvement, and multi-agent orchestration.
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/teradata-labs/loom.svg)](https://pkg.go.dev/github.com/teradata-labs/loom)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 ---
 
-**Version**: v1.0.0
+**Version**: v1.0.1
 
 > **Note**: Loom is in active development. Expect frequent updates, new features, and improvements. The API is stabilizing but may have minor changes as we refine the framework based on user feedback.
 
@@ -43,15 +43,15 @@ Loom is also a complete Go framework for building agent threads programmatically
 
 | Feature | What It Does |
 |---------|--------------|
-| **Natural Language Creation** | Describe what you need, get a working agent in ~30 seconds |
+| **Natural Language Creation** | Describe what you need to the weaver, get a working agent in ~30 seconds |
 | **Judge Evaluation System** | Multi-judge evaluation with 6 aggregation strategies and streaming support |
-| **Learning Agents** | Self-improving agents with DSPy integration and pattern proposals |
-| **Multi-Agent Orchestration** | 6 workflow patterns for coordinating agent teams |
-| **Pattern Library** | 90 reusable YAML patterns across 16 domains |
+| **Learning Agents** | Self-improving agents with [DSPy optimizer](https://dspy.ai/learn/optimization/optimizers/) & [textgradient](https://arxiv.org/abs/2406.07496) integration and intelligent pattern proposals |
+| **Multi-Agent Orchestration** | 6 workflow patterns for coordinating agent teams, automatically selected for you by the weaver |
+| **Pattern Library** | 90 reusable YAML patterns across 16 domains that are intelligently selected based on the user's intent and fed to the agent on every agent cycle |
 | **8 LLM Providers** | Anthropic, Bedrock, Ollama, OpenAI, Azure OpenAI, Mistral, Gemini, HuggingFace |
-| **Multi-Modal** | Vision analysis (`analyze_image`) and document parsing (`parse_document`) |
+| **Multi-Modal** | Vision analysis (`analyze_image`) and document parsing (`parse_document`) (works in progress!) |
 
-Unlike prompt-engineering approaches, Loom uses **pattern-guided learning** where domain knowledge is encoded as reusable YAML patterns. This makes agent threads more reliable, testable, and maintainable.
+Unlike prompt-engineering approaches, Loom uses **pattern-guided learning** where domain knowledge is encoded as reusable YAML patterns. This makes agent threads more reliable, testable, and maintainable. Users of loom can write their own patterns in plain english to make loom agents into specialized domain experts.
 
 ---
 
@@ -113,10 +113,7 @@ just install
 
 # Or build only (for development)
 just build                # Minimal build (no optional dependencies)
-just build-full          # Full build (with Hawk + Promptio)
 ```
-
-**Note**: Loom can be built with or without optional dependencies (Hawk for observability, Promptio for prompt management) using build tags. See [BUILD_TAGS.md](BUILD_TAGS.md) for details. The default build works independently without any external dependencies.
 
 **What gets installed:**
 - `looms` - Multi-agent server with weaver and pattern hot-reload
@@ -130,14 +127,14 @@ go install github.com/teradata-labs/loom/cmd/loom@latest
 go install github.com/teradata-labs/loom/cmd/looms@latest
 
 # Or install from specific version
-go install github.com/teradata-labs/loom/cmd/loom@v1.0.0
-go install github.com/teradata-labs/loom/cmd/looms@v1.0.0
+go install github.com/teradata-labs/loom/cmd/loom@v1.0.1
+go install github.com/teradata-labs/loom/cmd/looms@v1.0.1
 
 # Note: You'll need to manually install patterns for the weaver to work
 just install-patterns
 ```
 
-### Windows Package Managers (Coming Soon)
+### Windows Package Managers (Coming Soon- Under Review by scoop, winget, and chocolatey)
 
 Once published, Windows users will be able to install via package managers:
 
@@ -152,7 +149,7 @@ winget install Teradata.Loom
 choco install loom
 ```
 
-**Current Status**: Package manifests are ready in `packaging/windows/`. See [docs/installation/WINDOWS.md](docs/installation/WINDOWS.md) for manual installation.
+Package manifests are available in `packaging/windows/`. See [docs/installation/WINDOWS.md](docs/installation/WINDOWS.md) for manual installation.
 
 ### macOS Package Manager (Coming Soon)
 
@@ -309,7 +306,7 @@ loom --thread weaver
 - `auto-apply` - Automatically apply validated improvements (library-only)
 
 **DSPy Integration**:
-- Teleprompter optimization
+- Teleprompter optimization (now aptly renamed optimizers by DSPy)
 - Signature compilation
 - Example-based learning
 - Metric-driven improvement
@@ -339,7 +336,7 @@ See [Learning Agent Guide](docs/guides/learning-agent-guide.md) and [Judge-DSPy 
 | `nasa/` | 1 | Space/astronomy patterns |
 
 **Pattern Discovery** - Patterns are searched in priority order:
-1. `~/.loom/patterns/` (installed patterns - checked first)
+1. `$LOOM_DATA_DIR/patterns/` (installed patterns - checked first)
 2. `./patterns/` (development mode)
 3. Upward directory search (for test contexts)
 
@@ -357,17 +354,18 @@ Tri-modal inter-agent communication:
 
 | Tool | Description |
 |------|-------------|
-| `analyze_image` | Vision analysis for charts, screenshots, diagrams |
-| `parse_document` | Extract data from PDF, Excel (.xlsx), CSV files |
+| `analyze_image` | Vision analysis for charts, screenshots, diagrams (work in progress!) |
+| `parse_document` | Extract data from PDF, Excel (.xlsx), CSV files (work in progress!) |
 | `send_message` / `receive_message` | Inter-agent messaging |
-| `shared_memory` | Read/write shared state |
+| `shared_memory` | Read/write shared state for multi-agent systems |
 | `file_read` / `file_write` | File system operations |
 | `http_client` / `grpc_client` | External service calls |
-| `web_search` | Web search integration |
+| `record_progress` | Note taking/reminder tool for agents |
+| `web_search` | Web search integration (requires a [Tavily](https://www.tavily.com) or [Brave](https://brave.com/search/api/) API key. |
 
 ### Artifact Management
 
-Centralized file storage system for managing datasets, documents, and generated files:
+Centralized file storage system for agents managing datasets, documents, and generated files:
 
 **Features:**
 - Full-text search with SQLite FTS5
@@ -432,10 +430,10 @@ MCP coverage: 50-92% across modules (adapter 60%, manager 50%, protocol 92%).
 
 ## TUI Features
 
-Loom includes a feature-rich terminal UI (`loom`) with Crush-inspired visual design:
+Loom includes a feature-rich terminal UI (`loom`) based on [charmbracelet](https://github.com/charmbracelet)'s excellent TUI framework, [bubbletea](https://github.com/charmbracelet/bubbletea) with [Crush](https://github.com/charmbracelet/crush)-inspired visual design and aesthetics:
 
 ### Visual Design
-- **Crush-style theming**: Purple/blue color scheme with proper visual hierarchy
+- **Crush-style theming**: Orange/green color scheme with proper visual hierarchy
 - **Multi-agent support**: Unlimited agents with distinct colors (6 predefined + golden ratio color generation)
 - **Message separators**: Visual dividers between messages for clarity
 - **Responsive layout**: Adapts to terminal size with proper padding
@@ -444,14 +442,13 @@ Loom includes a feature-rich terminal UI (`loom`) with Crush-inspired visual des
 - `ctrl+c` - Quit application
 - `ctrl+n` - New session
 - `ctrl+l` - Clear messages
-- **`ctrl+m` - Switch model/provider** (17 models across 8 providers)
 - **`ctrl+p` - Toggle compact mode** (reduced padding/spacing)
 - `ctrl+u` / `ctrl+d` - Page up/down
 - `pgup` / `pgdn` - Scroll viewport
 
 ### Model Switching
 Mid-session model switching without losing conversation context:
-- **17 models available**: Claude Sonnet 4.5/3.5/Opus, GPT-4o, Llama 3.1/3.2, Gemini 2.0 Flash/1.5 Pro, Mistral Large/Small, Qwen 2.5
+- **17+ models available**: Claude Sonnet 4.5/3.5/Opus, GPT-5/4o, Llama 3.1/3.2, Gemini 2.0 Flash/1.5 Pro, Mistral Large/Small, Qwen 2.5
 - **Context preservation**: Full conversation history maintained when switching
 - **Provider diversity**: Anthropic, Bedrock, Ollama (free), OpenAI, Azure, Gemini, Mistral, HuggingFace
 - **Cost transparency**: Shows pricing per 1M tokens for each model
@@ -528,15 +525,6 @@ See [Architecture Guide](docs/architecture/) for detailed design.
 
 ---
 
-## Related Projects
-
-**Optional Integrations** (build with `-tags hawk`):
-- **[Hawk](https://github.com/teradata-labs/hawk)** - Evaluation platform for LLM agents with metrics and analytics
-
-> **Note**: Hawk is an optional dependency behind a build tag. Loom works fully without it.
-
----
-
 ## Roadmap
 
 Upcoming improvements:
@@ -563,6 +551,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for detailed guidelines.
 ## Support
 
 - **GitHub Issues**: [Report bugs or request features](https://github.com/teradata-labs/loom/issues)
+- **Security Issues or vulnerabilities**: Contact security@teradata.com.  Please do not post security issues or vulnerabilites in GitHub Issues.
 - **Documentation**: [Browse the docs](docs/)
 
 ---
@@ -573,4 +562,4 @@ Apache 2.0 - see [LICENSE](./LICENSE)
 
 ---
 
-Built by Teradata
+Built by Teradata Labs
