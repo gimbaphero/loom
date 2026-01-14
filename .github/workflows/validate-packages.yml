@@ -107,15 +107,15 @@ jobs:
         run: |
           $installer = Get-Content packaging/windows/winget/Teradata.Loom.installer.yaml -Raw
 
-          # winget requires UPPERCASE SHA256 hashes
-          if ($installer -match 'InstallerSha256:\s+([a-f0-9]+)') {
-            throw "SHA256 hash must be UPPERCASE in winget manifests"
+          # winget requires UPPERCASE SHA256 hashes - check for any lowercase hex letters
+          if ($installer -match 'InstallerSha256:[^\n]*[a-f]') {
+            throw "SHA256 hash must be UPPERCASE in winget manifests (found lowercase letters)"
           }
 
-          # Check for valid hex hashes (64 chars)
+          # Check for valid UPPERCASE hex hashes (64 chars)
           $hashes = [regex]::Matches($installer, 'InstallerSha256:\s+([A-F0-9]{64})')
           if ($hashes.Count -lt 2) {
-            throw "Expected 2 SHA256 hashes in installer manifest"
+            throw "Expected 2 SHA256 hashes in installer manifest, found $($hashes.Count)"
           }
 
           Write-Host "✓ All SHA256 hashes are properly formatted (UPPERCASE)"
