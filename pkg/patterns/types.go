@@ -215,6 +215,12 @@ type PatternSummary struct {
 	BackendFunction string   `json:"backend_function,omitempty"`
 }
 
+// scoredPattern represents a pattern with its relevance score (used in pattern selection/ranking).
+type scoredPattern struct {
+	name  string
+	score float64
+}
+
 // IntentCategory represents the classified intent of a user request.
 // This is used by the orchestrator for routing and pattern selection.
 type IntentCategory string

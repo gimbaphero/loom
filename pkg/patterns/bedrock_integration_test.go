@@ -9,11 +9,13 @@
 package patterns
 
 import (
+	"context"
 	"os"
 	"testing"
 	"time"
 
 	"github.com/teradata-labs/loom/pkg/llm/bedrock"
+	"github.com/teradata-labs/loom/pkg/types"
 )
 
 // TestPatternSelectionWithBedrockLLM tests the full pattern selection flow with real Bedrock LLM.
@@ -46,10 +48,19 @@ func TestPatternSelectionWithBedrockLLM(t *testing.T) {
 
 	provider, err := bedrock.NewClient(bedrockCfg)
 	if err != nil {
-		t.Fatalf("Failed to create Bedrock client: %v", err)
+		t.Skipf("Skipping test - Bedrock client creation failed (credentials may be unavailable): %v", err)
 	}
 
-	t.Log("✅ Bedrock client created")
+	// Test if credentials are valid with a simple call
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	testMsg := []types.Message{{Role: "user", Content: "test"}}
+	_, err = provider.Chat(ctx, testMsg, nil)
+	if err != nil {
+		t.Skipf("Skipping test - Bedrock credentials invalid or expired: %v", err)
+	}
+
+	t.Log("✅ Bedrock client created and credentials verified")
 
 	// Set up pattern library and orchestrator
 	lib := NewLibrary(nil, "../../patterns")
@@ -67,6 +78,10 @@ func TestPatternSelectionWithBedrockLLM(t *testing.T) {
 	llmClassifier := NewLLMIntentClassifier(llmClassifierConfig)
 	orch.SetIntentClassifier(llmClassifier)
 	t.Log("✅ LLM intent classifier configured")
+
+	// Configure LLM provider for hybrid re-ranking
+	orch.SetLLMProvider(provider)
+	t.Log("✅ LLM provider configured for hybrid re-ranking")
 
 	// Test scenarios that challenge keyword-based classification
 	scenarios := []struct {

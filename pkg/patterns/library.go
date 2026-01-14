@@ -20,6 +20,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -740,6 +741,14 @@ func (lib *Library) Search(query string) []PatternSummary {
 		filteredKeywords = []string{queryLower}
 	}
 
+	// Track patterns with their match scores
+	type scoredResult struct {
+		pattern    PatternSummary
+		matchCount int
+		score      float64
+	}
+	scoredResults := make([]scoredResult, 0)
+
 	for _, p := range all {
 		// Build searchable text from pattern metadata
 		searchText := strings.ToLower(fmt.Sprintf("%s %s %s %s",
@@ -760,8 +769,40 @@ func (lib *Library) Search(query string) []PatternSummary {
 
 		// Pattern matches if it contains any of the keywords
 		if matchCount > 0 {
-			results = append(results, p)
+			// Calculate relevance score
+			score := float64(matchCount) / float64(len(filteredKeywords))
+
+			// Boost score for matches in name/title (more important than description)
+			nameLower := strings.ToLower(p.Name)
+			titleLower := strings.ToLower(p.Title)
+			for _, keyword := range filteredKeywords {
+				if strings.Contains(nameLower, keyword) {
+					score += 0.5
+				}
+				if strings.Contains(titleLower, keyword) {
+					score += 0.3
+				}
+			}
+
+			scoredResults = append(scoredResults, scoredResult{
+				pattern:    p,
+				matchCount: matchCount,
+				score:      score,
+			})
 		}
+	}
+
+	// Sort by score (descending), then by match count
+	sort.Slice(scoredResults, func(i, j int) bool {
+		if scoredResults[i].score != scoredResults[j].score {
+			return scoredResults[i].score > scoredResults[j].score
+		}
+		return scoredResults[i].matchCount > scoredResults[j].matchCount
+	})
+
+	// Extract sorted patterns
+	for _, sr := range scoredResults {
+		results = append(results, sr.pattern)
 	}
 
 	duration := time.Since(startTime)
