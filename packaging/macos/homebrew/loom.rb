@@ -14,16 +14,10 @@ class Loom < Formula
     end
   end
 
-  on_linux do
-    url "https://github.com/teradata-labs/loom/releases/download/v1.0.1/loom-linux-amd64.tar.gz"
-    sha256 ""  # Update with actual SHA256
-  end
-
   def install
     # Install binary
     bin.install "loom-darwin-arm64" => "loom" if Hardware::CPU.arm?
     bin.install "loom-darwin-amd64" => "loom" if Hardware::CPU.intel?
-    bin.install "loom-linux-amd64" => "loom" if OS.linux?
 
     # Create Loom data directory
     loom_dir = "#{Dir.home}/.loom"

@@ -14,16 +14,10 @@ class LoomServer < Formula
     end
   end
 
-  on_linux do
-    url "https://github.com/teradata-labs/loom/releases/download/v1.0.1/looms-linux-amd64.tar.gz"
-    sha256 ""  # Update with actual SHA256
-  end
-
   def install
     # Install binary
     bin.install "looms-darwin-arm64" => "looms" if Hardware::CPU.arm?
     bin.install "looms-darwin-amd64" => "looms" if Hardware::CPU.intel?
-    bin.install "looms-linux-amd64" => "looms" if OS.linux?
 
     # Create Loom data directory
     loom_dir = "#{Dir.home}/.loom"

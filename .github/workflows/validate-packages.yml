@@ -95,7 +95,8 @@ jobs:
           # Basic YAML structure validation
           foreach ($file in $files) {
             $content = Get-Content $file -Raw
-            if ($content -notmatch '^\s*\w+:') {
+            # Check for YAML key-value pairs (allowing comments and blank lines at start)
+            if ($content -notmatch '\w+:\s*\S+') {
               throw "$file does not appear to be valid YAML"
             }
             Write-Host "✓ $file has valid YAML structure"
