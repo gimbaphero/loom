@@ -133,15 +133,24 @@ just install-patterns
 export ANTHROPIC_API_KEY="your-key"  # or configure Bedrock/Ollama/OpenAI
 
 # 2. Start the Loom server
-looms serve
+looms serve  # gRPC on :9090, HTTP/REST on :5006
 
-# 3. In another terminal, connect to the weaver to create your first agent
+# 3. Access Swagger UI for API docs
+open http://localhost:5006/swagger-ui
+
+# 4. Or use the TUI client
 loom --thread weaver
 # Then type: "Create a code review assistant that checks for security issues"
 
-# 4. Connect to your newly created thread
+# 5. Connect to your newly created thread
 loom --thread code-review-assistant
 ```
+
+**API Access:**
+- **gRPC**: `localhost:9090` (native protocol)
+- **HTTP/REST**: `http://localhost:5006` (REST API + SSE streaming)
+- **Swagger UI**: `http://localhost:5006/swagger-ui` (interactive API docs)
+- **OpenAPI Spec**: `http://localhost:5006/openapi.json`
 
 ---
 
@@ -462,6 +471,7 @@ See [Architecture Guide](docs/architecture/) for detailed design.
 
 - [Backend Implementation](docs/reference/backend.md) - Implementing `ExecutionBackend`
 - [Pattern System](docs/reference/patterns.md) - Creating and using patterns
+- [HTTP Server & CORS](docs/reference/http-server.md) - REST API, Swagger UI, CORS configuration
 - [Observability Setup](docs/guides/integration/observability.md) - Hawk integration
 - [Prompt Management](docs/guides/integration/prompt-integration.md) - Promptio integration
 - [Streaming](docs/reference/streaming.md) - Real-time progress events

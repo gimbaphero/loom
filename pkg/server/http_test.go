@@ -128,7 +128,7 @@ func TestCORSMiddleware(t *testing.T) {
 			// Create a test handler that returns 200 OK
 			handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("OK"))
+				_, _ = w.Write([]byte("OK"))
 			})
 
 			// Create HTTP server with CORS config
