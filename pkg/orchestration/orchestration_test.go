@@ -99,11 +99,17 @@ func (m *mockBackend) Close() error { return nil }
 func createMockAgent(t *testing.T, name string, llm agent.LLMProvider) *agent.Agent {
 	backend := &mockBackend{}
 
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := agent.DefaultConfig()
+	cfg.PatternConfig = agent.DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
 	ag := agent.NewAgent(
 		backend,
 		llm,
 		agent.WithName(name),
 		agent.WithDescription(fmt.Sprintf("Test agent: %s", name)),
+		agent.WithConfig(cfg),
 	)
 
 	return ag

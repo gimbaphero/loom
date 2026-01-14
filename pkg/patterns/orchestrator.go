@@ -21,6 +21,7 @@ import (
 
 	"github.com/teradata-labs/loom/pkg/metaagent/learning"
 	"github.com/teradata-labs/loom/pkg/observability"
+	"github.com/teradata-labs/loom/pkg/types"
 )
 
 // Orchestrator performs intent classification and execution planning.
@@ -35,6 +36,9 @@ type Orchestrator struct {
 
 	// Pluggable execution planner (backend-specific)
 	executionPlanner ExecutionPlannerFunc
+
+	// LLM provider for re-ranking (optional, enables hybrid approach)
+	llmProvider types.LLMProvider
 }
 
 // NewOrchestrator creates a new orchestrator with the given library.
@@ -75,6 +79,12 @@ func (o *Orchestrator) SetIntentClassifier(classifier IntentClassifierFunc) {
 // Backends can provide domain-specific planners for optimized execution.
 func (o *Orchestrator) SetExecutionPlanner(planner ExecutionPlannerFunc) {
 	o.executionPlanner = planner
+}
+
+// SetLLMProvider sets the LLM provider for pattern re-ranking.
+// When set, enables hybrid approach: fast keyword matching + LLM re-ranking for ambiguous cases.
+func (o *Orchestrator) SetLLMProvider(provider types.LLMProvider) {
+	o.llmProvider = provider
 }
 
 // ClassifyIntent analyzes user message and determines intent category.
@@ -222,37 +232,82 @@ func (o *Orchestrator) RecommendPattern(userMessage string, intent IntentCategor
 	}
 
 	// Score patterns based on intent match and keyword relevance
-	type scoredPattern struct {
-		name  string
-		score float64
+	scored := make([]scoredPattern, 0)
+
+	// Tokenize user message for better matching
+	keywords := strings.FieldsFunc(messageLower, func(r rune) bool {
+		return r == ' ' || r == ',' || r == ';' || r == '-' || r == '_'
+	})
+
+	// Filter stop words
+	stopWords := map[string]bool{
+		"a": true, "an": true, "and": true, "are": true, "as": true, "at": true,
+		"be": true, "by": true, "for": true, "from": true, "has": true, "in": true,
+		"is": true, "it": true, "of": true, "on": true, "that": true, "the": true,
+		"to": true, "was": true, "will": true, "with": true,
 	}
 
-	scored := make([]scoredPattern, 0)
+	filteredKeywords := make([]string, 0, len(keywords))
+	for _, kw := range keywords {
+		if !stopWords[kw] && len(kw) > 2 {
+			filteredKeywords = append(filteredKeywords, kw)
+		}
+	}
 
 	for _, summary := range searchResults {
 		score := 0.0
 
-		// Boost if category matches intent
-		if matchesIntent(summary.Category, intent) {
-			score += 0.4
+		// Build searchable text
+		searchText := strings.ToLower(fmt.Sprintf("%s %s %s %s",
+			summary.Name, summary.Title, summary.Description, summary.BackendFunction))
+
+		for _, useCase := range summary.UseCases {
+			searchText += " " + strings.ToLower(useCase)
 		}
 
-		// Boost if use cases mention keywords
-		for _, useCase := range summary.UseCases {
-			if strings.Contains(strings.ToLower(useCase), messageLower) {
-				score += 0.3
-				break
+		// Boost if category matches intent (strong signal)
+		if matchesIntent(summary.Category, intent) {
+			score += 0.5
+		} else if intent == IntentUnknown {
+			// When intent is unknown, give partial boost to relevant categories
+			// This helps ML, analytics, and data patterns rank higher
+			categoryLower := strings.ToLower(summary.Category)
+			switch categoryLower {
+			case "ml", "analytics", "timeseries":
+				score += 0.4 // High relevance
+			case "data_quality", "etl", "data_transform":
+				score += 0.3 // Medium relevance
+			case "data-import", "learning", "reasoning":
+				score += 0.2 // Lower relevance
 			}
 		}
 
-		// Boost if title matches keywords
-		if strings.Contains(strings.ToLower(summary.Title), messageLower) {
+		// Count keyword matches in searchable text
+		keywordMatches := 0
+		for _, keyword := range filteredKeywords {
+			if strings.Contains(searchText, keyword) {
+				keywordMatches++
+			}
+		}
+
+		// Score based on percentage of keywords matched
+		if len(filteredKeywords) > 0 {
+			matchRate := float64(keywordMatches) / float64(len(filteredKeywords))
+			score += matchRate * 0.5 // Up to 0.5 points for keyword matching
+		}
+
+		// Bonus for exact name match
+		if strings.Contains(summary.Name, messageLower) {
 			score += 0.2
 		}
 
-		// Boost if description matches keywords
-		if strings.Contains(strings.ToLower(summary.Description), messageLower) {
-			score += 0.1
+		// Bonus for title match
+		titleLower := strings.ToLower(summary.Title)
+		for _, keyword := range filteredKeywords {
+			if strings.Contains(titleLower, keyword) {
+				score += 0.1
+				break
+			}
 		}
 
 		if score > 0 {
@@ -273,36 +328,83 @@ func (o *Orchestrator) RecommendPattern(userMessage string, intent IntentCategor
 		return "", 0.0
 	}
 
-	// Return highest scoring pattern
-	best := scored[0]
-	for _, s := range scored[1:] {
-		if s.score > best.score {
-			best = s
-		}
+	// === HYBRID APPROACH: Decide if we need LLM re-ranking ===
+	useLLM := shouldInvokeLLMReRanker(scored, intent, o.llmProvider)
+
+	if span != nil {
+		span.SetAttribute("llm_reranking.triggered", fmt.Sprintf("%t", useLLM))
 	}
 
-	// Cap confidence at 0.9 (never 100% certain)
-	if best.score > 0.9 {
-		best.score = 0.9
+	var finalPattern string
+	var finalConfidence float64
+
+	if useLLM {
+		// Use LLM to re-rank top candidates for better accuracy
+		topN := min(5, len(scored))
+		topCandidates := scored[:topN]
+
+		if span != nil {
+			span.SetAttribute("llm_reranking.candidates", fmt.Sprintf("%d", topN))
+		}
+
+		// Build summary map for LLM re-ranker
+		summaries := make(map[string]PatternSummary)
+		for _, s := range topCandidates {
+			// Find summary in search results
+			for _, summary := range searchResults {
+				if summary.Name == s.name {
+					summaries[s.name] = summary
+					break
+				}
+			}
+		}
+
+		llmPattern, llmConf, err := reRankPatternsWithLLM(o.llmProvider, userMessage, topCandidates, summaries)
+		if err != nil {
+			// Fallback to keyword scoring on error
+			if span != nil {
+				span.RecordError(fmt.Errorf("LLM re-ranking failed, using keyword fallback: %w", err))
+				span.SetAttribute("llm_reranking.fallback", "true")
+			}
+			finalPattern = scored[0].name
+			finalConfidence = scored[0].score
+		} else {
+			finalPattern = llmPattern
+			finalConfidence = llmConf
+			if span != nil {
+				span.SetAttribute("llm_reranking.success", "true")
+			}
+		}
+	} else {
+		// Use keyword-based scoring (fast path)
+		finalPattern = scored[0].name
+		finalConfidence = scored[0].score
+
+		// Cap confidence at 0.9 (never 100% certain for keyword matching)
+		if finalConfidence > 0.9 {
+			finalConfidence = 0.9
+		}
 	}
 
 	duration := time.Since(startTime)
 	if span != nil {
 		span.SetAttribute("recommendation.result", "success")
-		span.SetAttribute("recommendation.pattern", best.name)
-		span.SetAttribute("recommendation.confidence", fmt.Sprintf("%.2f", best.score))
+		span.SetAttribute("recommendation.pattern", finalPattern)
+		span.SetAttribute("recommendation.confidence", fmt.Sprintf("%.2f", finalConfidence))
 		span.SetAttribute("recommendation.candidates", fmt.Sprintf("%d", len(scored)))
+		span.SetAttribute("recommendation.method", map[bool]string{true: "llm", false: "keyword"}[useLLM])
 		span.SetAttribute("duration_ms", fmt.Sprintf("%.2f", duration.Seconds()*1000))
 	}
 
 	o.tracer.RecordMetric("patterns.orchestrator.recommend_pattern", 1.0, map[string]string{
 		"intent":     string(intent),
 		"result":     "success",
-		"pattern":    best.name,
-		"confidence": fmt.Sprintf("%.1f", best.score*100),
+		"pattern":    finalPattern,
+		"method":     map[bool]string{true: "llm", false: "keyword"}[useLLM],
+		"confidence": fmt.Sprintf("%.1f", finalConfidence*100),
 	})
 
-	return best.name, best.score
+	return finalPattern, finalConfidence
 }
 
 // RecordPatternUsage records pattern usage metrics to the effectiveness tracker.

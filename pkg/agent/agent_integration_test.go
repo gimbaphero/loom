@@ -16,6 +16,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -43,7 +44,13 @@ func TestAgent_FullLoopWithTools(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	// Register calculator tool
 	ag.RegisterTool(&mockCalculatorTool{})
@@ -104,7 +111,13 @@ func TestAgent_MultipleToolExecutions(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 	ag.RegisterTool(&mockCalculatorTool{})
 
 	ctx := context.Background()
@@ -148,7 +161,13 @@ func TestAgent_MultiTurnConversation(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 	ag.RegisterTool(&mockCalculatorTool{})
 
 	ctx := context.Background()
@@ -182,7 +201,13 @@ func TestAgent_ToolExecutionError(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 	ag.RegisterTool(&mockFailingTool{})
 
 	ctx := context.Background()
@@ -222,9 +247,15 @@ func TestAgent_MaxTurnsLimit(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	patternCfg := DefaultPatternConfig()
+	patternCfg.UseLLMClassifier = false
+
 	ag := NewAgent(mockBackend, mockLLM, WithConfig(&Config{
 		MaxTurns:          5,
 		MaxToolExecutions: 50,
+		PatternConfig:     patternCfg,
 	}))
 	ag.RegisterTool(&mockCalculatorTool{})
 
@@ -259,9 +290,15 @@ func TestAgent_MaxToolExecutionsLimit(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	patternCfg := DefaultPatternConfig()
+	patternCfg.UseLLMClassifier = false
+
 	ag := NewAgent(mockBackend, mockLLM, WithConfig(&Config{
 		MaxTurns:          25,
 		MaxToolExecutions: 3, // Limit to 3 tools
+		PatternConfig:     patternCfg,
 	}))
 	ag.RegisterTool(&mockCalculatorTool{})
 
@@ -289,7 +326,13 @@ func TestAgent_NoToolsAvailable(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 	// Don't register any tools
 
 	ctx := context.Background()
@@ -312,7 +355,12 @@ func TestAgent_MultiTurnConversationWithContext(t *testing.T) {
 	// Test that agent maintains context across turns
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	sessionID := "context_test"
@@ -351,7 +399,12 @@ func TestAgent_ConcurrentConversations(t *testing.T) {
 	// Test concurrent conversations in different sessions
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	const numConcurrent = 20
@@ -395,7 +448,13 @@ func TestAgent_ToolNotFound(t *testing.T) {
 	}
 
 	mockBackend := &mockBackend{}
-	ag := NewAgent(mockBackend, mockLLM)
+
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 	// Don't register the tool
 
 	ctx := context.Background()
@@ -417,7 +476,12 @@ func TestAgent_ToolNotFound(t *testing.T) {
 func TestAgent_SessionPersistence(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	sessionID := "persistent_session"
@@ -466,7 +530,12 @@ func TestAgent_SessionPersistence(t *testing.T) {
 func TestAgent_SessionDeletion(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	sessionID := "delete_me"
@@ -496,7 +565,12 @@ func TestAgent_SessionDeletion(t *testing.T) {
 func TestAgent_SessionListing(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 
@@ -531,7 +605,12 @@ func TestAgent_SessionListing(t *testing.T) {
 func TestAgent_ToolRegistration(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	// Initially has 3 built-in tools (query_tool_result, shell_execute, record_finding)
 	// Note: get_tool_result removed - inline metadata makes it unnecessary
@@ -563,12 +642,17 @@ func TestAgent_WithTracing(t *testing.T) {
 	mockLLM := &mockSimpleLLM{}
 	mockTracer := &mockTracer{}
 
+	// Disable LLM classifier for deterministic mock LLM behavior
+	patternCfg := DefaultPatternConfig()
+	patternCfg.UseLLMClassifier = false
+
 	ag := NewAgent(mockBackend, mockLLM,
 		WithTracer(mockTracer),
 		WithConfig(&Config{
 			MaxTurns:          25,
 			MaxToolExecutions: 50,
 			EnableTracing:     true,
+			PatternConfig:     patternCfg,
 		}),
 	)
 
@@ -590,12 +674,17 @@ func TestAgent_WithoutTracing(t *testing.T) {
 	mockLLM := &mockSimpleLLM{}
 	mockTracer := &mockTracer{}
 
+	// Disable LLM classifier for deterministic mock LLM behavior
+	patternCfg := DefaultPatternConfig()
+	patternCfg.UseLLMClassifier = false
+
 	ag := NewAgent(mockBackend, mockLLM,
 		WithTracer(mockTracer),
 		WithConfig(&Config{
 			MaxTurns:          25,
 			MaxToolExecutions: 50,
 			EnableTracing:     false, // Disabled
+			PatternConfig:     patternCfg,
 		}),
 	)
 
@@ -615,7 +704,12 @@ func TestAgent_WithoutTracing(t *testing.T) {
 func TestAgent_LLMError(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockErrorLLM{errorMsg: "LLM service unavailable"}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	resp, err := ag.Chat(ctx, "llm_error", "This will fail")
@@ -632,7 +726,12 @@ func TestAgent_LLMError(t *testing.T) {
 func TestAgent_ContextCancellation(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSlowLLM{delay: 500 * time.Millisecond}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
@@ -651,7 +750,12 @@ func TestAgent_ContextCancellation(t *testing.T) {
 func TestAgent_EmptyMessage(t *testing.T) {
 	mockBackend := &mockBackend{}
 	mockLLM := &mockSimpleLLM{}
-	ag := NewAgent(mockBackend, mockLLM)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := NewAgent(mockBackend, mockLLM, WithConfig(cfg))
 
 	ctx := context.Background()
 	resp, err := ag.Chat(ctx, "empty_msg", "")
@@ -685,6 +789,10 @@ func (m *mockToolCallingLLM) Chat(ctx context.Context, messages []llmtypes.Messa
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	if os.Getenv("LOOM_DEBUG_AGENT_TEST") == "1" {
+		fmt.Printf("[mockToolCallingLLM.Chat] currentIdx=%d, total responses=%d, tools=%d\n", m.currentIdx, len(m.responses), len(tools))
+	}
+
 	if m.alwaysCallTools {
 		// Simulate LLM that keeps calling tools
 		return &llmtypes.LLMResponse{
@@ -708,11 +816,17 @@ func (m *mockToolCallingLLM) Chat(ctx context.Context, messages []llmtypes.Messa
 	resp := m.responses[m.currentIdx]
 	m.currentIdx++
 
-	return &llmtypes.LLMResponse{
+	result := &llmtypes.LLMResponse{
 		Content:   resp.content,
 		ToolCalls: resp.toolCalls,
 		Usage:     llmtypes.Usage{InputTokens: 50, OutputTokens: 25, CostUSD: 0.0037},
-	}, nil
+	}
+
+	if os.Getenv("LOOM_DEBUG_AGENT_TEST") == "1" {
+		fmt.Printf("[mockToolCallingLLM.Chat] returning content=%q, toolCalls=%d\n", result.Content, len(result.ToolCalls))
+	}
+
+	return result, nil
 }
 
 func (m *mockToolCallingLLM) Name() string  { return "mock-tool-calling" }
@@ -945,7 +1059,12 @@ func TestAgent_SelfCorrection_NonSQLError(t *testing.T) {
 		},
 	}
 
-	agent := NewAgent(backend, llm)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	agent := NewAgent(backend, llm, WithConfig(cfg))
 	agent.RegisterTool(&mockNonSQLErrorTool{})
 
 	ctx := context.Background()
@@ -1021,7 +1140,12 @@ func TestAgent_SelfCorrection_CircuitBreakerCreated(t *testing.T) {
 func TestAgent_AnalyzeError(t *testing.T) {
 	backend := &mockBackend{}
 	llm := &mockSimpleLLM{}
-	agent := NewAgent(backend, llm)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	agent := NewAgent(backend, llm, WithConfig(cfg))
 
 	tests := []struct {
 		name         string
@@ -1076,7 +1200,12 @@ func TestAgent_OrchestratorIntegration(t *testing.T) {
 	backend := &mockBackend{}
 	llm := &mockSimpleLLM{}
 
-	agent := NewAgent(backend, llm)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	agent := NewAgent(backend, llm, WithConfig(cfg))
 
 	// Verify orchestrator is initialized
 	orch := agent.GetOrchestrator()
@@ -1161,8 +1290,13 @@ func TestAgent_ToolCallMessagePersistence(t *testing.T) {
 	// Create memory with session store
 	memory := NewMemoryWithStore(store)
 
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := DefaultConfig()
+	cfg.PatternConfig = DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
 	// Create agent with memory configured
-	ag := NewAgent(mockBackend, mockLLM, WithMemory(memory))
+	ag := NewAgent(mockBackend, mockLLM, WithMemory(memory), WithConfig(cfg))
 	ag.RegisterTool(&mockCalculatorTool{})
 
 	ctx := context.Background()

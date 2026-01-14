@@ -79,8 +79,13 @@ func TestInstrumentedAgent_EndToEndTracing(t *testing.T) {
 		},
 	}
 
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := agent.DefaultConfig()
+	cfg.PatternConfig = agent.DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
 	// Create instrumented agent using our helper
-	ag := builder.NewInstrumentedAgent(backend, llmProvider, tracer)
+	ag := builder.NewInstrumentedAgent(backend, llmProvider, tracer, agent.WithConfig(cfg))
 
 	// Register a mock tool
 	mockTool := &shuttle.MockTool{
@@ -248,7 +253,12 @@ func TestInstrumentedAgent_CostTracking(t *testing.T) {
 		},
 	}
 
-	ag := builder.NewInstrumentedAgent(backend, llmProvider, tracer)
+	// Disable LLM classifier for deterministic mock LLM behavior
+	cfg := agent.DefaultConfig()
+	cfg.PatternConfig = agent.DefaultPatternConfig()
+	cfg.PatternConfig.UseLLMClassifier = false
+
+	ag := builder.NewInstrumentedAgent(backend, llmProvider, tracer, agent.WithConfig(cfg))
 
 	ctx := context.Background()
 	response, err := ag.Chat(ctx, "test-session", "Test message")
