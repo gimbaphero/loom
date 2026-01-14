@@ -72,6 +72,7 @@ Support:
 	// Server flags
 	rootCmd.PersistentFlags().Int("port", 60051, "gRPC server port")
 	rootCmd.PersistentFlags().String("host", "0.0.0.0", "gRPC server host")
+	rootCmd.PersistentFlags().Int("http-port", 5006, "HTTP/REST+SSE server port (0=disabled)")
 	rootCmd.PersistentFlags().Bool("reflection", true, "enable gRPC reflection")
 
 	// LLM flags
@@ -102,6 +103,7 @@ Support:
 	// Bind flags to viper
 	_ = viper.BindPFlag("server.port", rootCmd.PersistentFlags().Lookup("port"))
 	_ = viper.BindPFlag("server.host", rootCmd.PersistentFlags().Lookup("host"))
+	_ = viper.BindPFlag("server.http_port", rootCmd.PersistentFlags().Lookup("http-port"))
 	_ = viper.BindPFlag("server.enable_reflection", rootCmd.PersistentFlags().Lookup("reflection"))
 
 	_ = viper.BindPFlag("llm.provider", rootCmd.PersistentFlags().Lookup("llm-provider"))

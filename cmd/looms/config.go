@@ -145,7 +145,7 @@ type TUIConfig struct {
 type ServerConfig struct {
 	Port             int                 `mapstructure:"port"`
 	Host             string              `mapstructure:"host"`
-	HTTPPort         int                 `mapstructure:"http_port"` // HTTP/REST+SSE port (default: 8080, 0=disabled)
+	HTTPPort         int                 `mapstructure:"http_port"` // HTTP/REST+SSE port (default: 5006, 0=disabled)
 	EnableReflection bool                `mapstructure:"enable_reflection"`
 	TLS              TLSConfig           `mapstructure:"tls"`
 	Clarification    ClarificationConfig `mapstructure:"clarification"` // Clarification question timeouts
@@ -711,7 +711,7 @@ func setDefaults() {
 
 	// TUI defaults
 	viper.SetDefault("tui.server_addr", "localhost:9090")
-	viper.SetDefault("tui.http_addr", "localhost:8080")
+	viper.SetDefault("tui.http_addr", "localhost:5006")
 	viper.SetDefault("tui.theme", "auto")
 
 	// Shared memory defaults (use temp dir, not hardcoded /tmp)
