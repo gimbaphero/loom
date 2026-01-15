@@ -141,13 +141,18 @@ jobs:
 
           # Use wingetcreate to update manifests
           ..\wingetcreate.exe update `
-            --id Teradata.Loom `
             --version $version `
             --urls "https://github.com/${{ github.repository }}/releases/download/v$version/loom-windows-x64.zip" `
             --submit `
-            --token $env:GH_TOKEN
+            --token $env:GH_TOKEN `
+            Teradata.Loom
 
-          Write-Host "✅ wingetcreate submitted PR successfully"
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "✅ wingetcreate submitted PR successfully"
+          } else {
+            Write-Host "⚠️  wingetcreate failed, falling back to manual PR creation"
+            exit 1
+          }
 
       - name: Alternative - Manual PR creation (if wingetcreate submit fails)
         if: failure()
