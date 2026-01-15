@@ -99,7 +99,8 @@ jobs:
           gh repo clone "${{ github.actor }}/winget-pkgs" winget-pkgs
           cd winget-pkgs
 
-          # Add upstream
+          # Add upstream (remove first if it exists)
+          git remote remove upstream 2>/dev/null || true
           git remote add upstream https://github.com/microsoft/winget-pkgs.git
           git fetch upstream
 
