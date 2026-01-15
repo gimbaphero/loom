@@ -158,12 +158,15 @@ jobs:
           git push origin master
 
       - name: Create update branch and commit
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           cd scoop-extras
 
-          # Create branch
+          # Create branch (delete if exists)
           BRANCH="loom-${VERSION}"
+          git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
           # Copy updated manifests
