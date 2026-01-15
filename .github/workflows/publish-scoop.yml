@@ -161,8 +161,6 @@ jobs:
           git push origin master
 
       - name: Create update branch and commit
-        env:
-          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           cd scoop-extras
