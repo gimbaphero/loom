@@ -134,7 +134,7 @@ jobs:
 
       - name: Fork and clone Scoop Extras
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           # Check if fork exists, if not create it
           if ! gh repo view ${{ github.actor }}/Extras &>/dev/null; then
@@ -180,7 +180,7 @@ jobs:
 
       - name: Create Pull Request
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="loom-${VERSION}"

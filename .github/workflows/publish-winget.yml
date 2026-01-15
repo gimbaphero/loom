@@ -85,7 +85,7 @@ jobs:
       - name: Fork and clone winget-pkgs
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           # Check if fork exists, if not create it
           $forkExists = gh repo view "${{ github.actor }}/winget-pkgs" 2>&1
@@ -111,7 +111,7 @@ jobs:
       - name: Update manifests with wingetcreate
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           $version = "${{ steps.version.outputs.version }}"
           $combinedHash = "${{ steps.hashes.outputs.combined_hash }}"
@@ -140,7 +140,7 @@ jobs:
         if: failure()
         shell: pwsh
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           $version = "${{ steps.version.outputs.version }}"
           $combinedHash = "${{ steps.hashes.outputs.combined_hash }}"
