@@ -4,10 +4,9 @@ permissions:
   contents: read
 
 on:
-  # Run on release tags
-  push:
-    tags:
-      - 'v*.*.*'
+  # Run when release is published (after release workflow completes)
+  release:
+    types: [published]
 
   # Manual trigger
   workflow_dispatch:
@@ -32,7 +31,8 @@ jobs:
           if ("${{ github.event_name }}" -eq "workflow_dispatch") {
             $version = "${{ github.event.inputs.version }}"
           } else {
-            $version = "$env:GITHUB_REF" -replace 'refs/tags/v', ''
+            # Extract version from release tag
+            $version = "${{ github.event.release.tag_name }}" -replace '^v', ''
           }
           "version=$version" >> $env:GITHUB_OUTPUT
           Write-Host "Publishing version: $version"
