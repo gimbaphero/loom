@@ -234,7 +234,7 @@ Additional collaboration patterns in `pkg/collaboration/`:
 
 ### Judge Evaluation System
 
-Multi-judge evaluation with configurable aggregation strategies (Phases 7-11 complete):
+Multi-judge evaluation with configurable aggregation strategies:
 
 ```bash
 # Evaluate agent output with multiple judges
@@ -519,9 +519,6 @@ See [Architecture Guide](docs/architecture/) for detailed design.
 
 - [Examples Overview](./examples/README.md) - YAML-based configuration examples
 - [Configuration Templates](./examples/reference/) - Agent, workflow, and pattern templates
-- [D&D Adventure](./examples/03-advanced/dnd-adventure/README.md) - Multi-agent game example
-- [Transcend Example](./examples/02-production-ready/transcend/README.md) - Production configuration example
-- [Scheduled Workflows](./examples/scheduled-workflows/README.md) - Cron-based workflow examples
 
 ---
 
