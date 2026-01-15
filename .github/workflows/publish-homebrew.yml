@@ -98,14 +98,14 @@ jobs:
 
       - name: Clone homebrew-tap
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           # Clone homebrew-tap directly (no fork needed since we own it)
           gh repo clone teradata-labs/homebrew-tap homebrew-tap
           cd homebrew-tap
           git checkout main
 
-          # Configure git to use the GitHub token
+          # Configure git to use the PAT token for authentication
           git config --global url."https://x-access-token:${GH_TOKEN}@github.com/".insteadOf "https://github.com/"
 
       - name: Update formulas
@@ -163,7 +163,7 @@ jobs:
 
       - name: Create Pull Request
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           BRANCH="loom-${VERSION}"
