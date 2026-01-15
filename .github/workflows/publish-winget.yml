@@ -87,16 +87,25 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
         run: |
-          # Check if fork exists, if not create it
-          $forkExists = gh repo view "${{ github.actor }}/winget-pkgs" 2>&1
-          if ($LASTEXITCODE -ne 0) {
+          # Check for existing fork (might have custom name)
+          $forkName = "${{ github.actor }}/winget-pkgs"
+          $altForkName = "${{ github.actor }}/loom-winget-pkgs"
+
+          $fork = $null
+          if ((gh repo view $forkName 2>&1 | Out-String) -notmatch "Could not resolve") {
+            $fork = $forkName
+          } elseif ((gh repo view $altForkName 2>&1 | Out-String) -notmatch "Could not resolve") {
+            Write-Host "Found fork with custom name: $altForkName"
+            $fork = $altForkName
+          } else {
             Write-Host "Forking microsoft/winget-pkgs..."
             gh repo fork microsoft/winget-pkgs --clone=false
             Start-Sleep -Seconds 10
+            $fork = $forkName
           }
 
           # Clone the fork
-          gh repo clone "${{ github.actor }}/winget-pkgs" winget-pkgs
+          gh repo clone $fork winget-pkgs
           cd winget-pkgs
 
           # Configure git to use the PAT token for authentication
