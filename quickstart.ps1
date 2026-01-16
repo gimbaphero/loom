@@ -3,10 +3,27 @@
 <#
 .SYNOPSIS
     Loom Quickstart Installation Script for Windows
+
 .DESCRIPTION
     Automated installation script for Loom agent framework with LLM provider and web search configuration
+
 .NOTES
     Requires PowerShell 5.1 or higher
+
+.EXAMPLE - If you get "Running scripts is disabled on this system"
+    This is PowerShell's execution policy blocking the script.
+
+    Option 1 (Recommended - No admin required):
+        powershell -ExecutionPolicy Bypass -File .\quickstart.ps1
+
+    Option 2 (Allow scripts for current user - No admin required):
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+        .\quickstart.ps1
+
+    Option 3 (Allow scripts system-wide - Requires admin):
+        Run PowerShell as Administrator, then:
+        Set-ExecutionPolicy -ExecutionPolicy RemoteSigned
+        .\quickstart.ps1
 #>
 
 # Enable strict mode

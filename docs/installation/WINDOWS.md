@@ -15,7 +15,14 @@ cd loom
 
 # Run the quickstart script
 .\quickstart.ps1
+
+# If you get "Running scripts is disabled on this system", use:
+powershell -ExecutionPolicy Bypass -File .\quickstart.ps1
 ```
+
+> **Note**: If you encounter PowerShell execution policy errors, you can either:
+> - Use the bypass command above (recommended, no admin required)
+> - Or enable scripts for your user: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
 
 **What it does**:
 - ✅ Checks/installs prerequisites (Go, Just, Buf)

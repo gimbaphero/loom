@@ -82,6 +82,9 @@ cd loom
 git clone https://github.com/teradata-labs/loom
 cd loom
 .\quickstart.ps1
+
+# If you get "Running scripts is disabled on this system":
+powershell -ExecutionPolicy Bypass -File .\quickstart.ps1
 ```
 
 The installer will:
