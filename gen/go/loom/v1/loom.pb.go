@@ -2604,7 +2604,7 @@ type Session struct {
 	State string `protobuf:"bytes,6,opt,name=state,proto3" json:"state,omitempty"`
 	// Total cost so far
 	TotalCostUsd float64 `protobuf:"fixed64,7,opt,name=total_cost_usd,json=totalCostUsd,proto3" json:"total_cost_usd,omitempty"`
-	// Number of conversations
+	// Total number of messages (user, assistant, and tool messages)
 	ConversationCount int32 `protobuf:"varint,8,opt,name=conversation_count,json=conversationCount,proto3" json:"conversation_count,omitempty"`
 	// Metadata
 	Metadata      map[string]string `protobuf:"bytes,9,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`

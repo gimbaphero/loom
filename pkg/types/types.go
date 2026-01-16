@@ -297,6 +297,14 @@ func (s *Session) GetMessages() []Message {
 	return messages
 }
 
+// MessageCount returns the total number of messages in the session.
+// Thread-safe via RLock.
+func (s *Session) MessageCount() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return len(s.Messages)
+}
+
 // ExecutionStage represents the current stage of agent execution.
 type ExecutionStage string
 

@@ -53,6 +53,10 @@ func TestConvertSession(t *testing.T) {
 		CreatedAt:    now,
 		UpdatedAt:    now.Add(time.Hour),
 		TotalCostUSD: 0.0123,
+		Messages: []agent.Message{
+			{Role: "user", Content: "Hello"},
+			{Role: "assistant", Content: "Hi there"},
+		},
 	}
 
 	protoSession := ConvertSession(session)
@@ -75,6 +79,10 @@ func TestConvertSession(t *testing.T) {
 
 	if protoSession.TotalCostUsd != 0.0123 {
 		t.Errorf("Expected cost 0.0123, got %f", protoSession.TotalCostUsd)
+	}
+
+	if protoSession.ConversationCount != 2 {
+		t.Errorf("Expected conversation_count 2, got %d", protoSession.ConversationCount)
 	}
 }
 
@@ -234,6 +242,10 @@ func TestConvertSessionWithNilFields(t *testing.T) {
 
 	if protoSession.TotalCostUsd != 0.0 {
 		t.Errorf("Expected zero cost, got %f", protoSession.TotalCostUsd)
+	}
+
+	if protoSession.ConversationCount != 0 {
+		t.Errorf("Expected zero conversation_count, got %d", protoSession.ConversationCount)
 	}
 }
 
