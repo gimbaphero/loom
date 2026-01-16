@@ -115,8 +115,34 @@ func (e *Executor) Execute(ctx context.Context, toolName string, params map[stri
 	// LLMs naturally use snake_case, but some tools expect camelCase
 	normalizedParams := normalizeParametersToSchema(tool, params)
 
+	// Handle large parameters: store in shared memory to prevent context bloat
+	referencedParams, err := e.handleLargeParameters(normalizedParams)
+	if err != nil {
+		return &Result{
+			Success: false,
+			Error: &Error{
+				Code:      "LARGE_PARAM_ERROR",
+				Message:   fmt.Sprintf("Failed to handle large parameters: %v", err),
+				Retryable: false,
+			},
+		}, nil
+	}
+
+	// Dereference parameters before tool execution (transparent to tools)
+	finalParams, err := e.dereferenceLargeParameters(referencedParams)
+	if err != nil {
+		return &Result{
+			Success: false,
+			Error: &Error{
+				Code:      "DEREF_ERROR",
+				Message:   fmt.Sprintf("Failed to dereference parameters: %v", err),
+				Retryable: false,
+			},
+		}, nil
+	}
+
 	start := time.Now()
-	result, err := tool.Execute(ctx, normalizedParams)
+	result, err := tool.Execute(ctx, finalParams)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -169,8 +195,34 @@ func (e *Executor) ExecuteWithTool(ctx context.Context, tool Tool, params map[st
 		}
 	}
 
+	// Handle large parameters: store in shared memory to prevent context bloat
+	referencedParams, err := e.handleLargeParameters(params)
+	if err != nil {
+		return &Result{
+			Success: false,
+			Error: &Error{
+				Code:      "LARGE_PARAM_ERROR",
+				Message:   fmt.Sprintf("Failed to handle large parameters: %v", err),
+				Retryable: false,
+			},
+		}, nil
+	}
+
+	// Dereference parameters before tool execution (transparent to tools)
+	finalParams, err := e.dereferenceLargeParameters(referencedParams)
+	if err != nil {
+		return &Result{
+			Success: false,
+			Error: &Error{
+				Code:      "DEREF_ERROR",
+				Message:   fmt.Sprintf("Failed to dereference parameters: %v", err),
+				Retryable: false,
+			},
+		}, nil
+	}
+
 	start := time.Now()
-	result, err := tool.Execute(ctx, params)
+	result, err := tool.Execute(ctx, finalParams)
 	duration := time.Since(start)
 
 	if err != nil {
@@ -354,6 +406,113 @@ func formatSharedMemoryResultSummary(meta *storage.DataMetadata, id string) stri
 	}
 
 	return summary.String()
+}
+
+// estimateValueSize calculates approximate byte size of a parameter value.
+// Used to determine if a parameter should be stored in shared memory.
+func estimateValueSize(value interface{}) int64 {
+	switch v := value.(type) {
+	case string:
+		return int64(len(v))
+	case []byte:
+		return int64(len(v))
+	case map[string]interface{}, []interface{}:
+		// Serialize to estimate size
+		data, err := json.Marshal(v)
+		if err != nil {
+			return 0
+		}
+		return int64(len(data))
+	default:
+		// Small primitive types (int, bool, float), don't store
+		return 0
+	}
+}
+
+// handleLargeParameters checks if any parameter values exceed threshold
+// and stores them in shared memory, replacing with DataReference objects.
+// This prevents massive parameters from bloating context windows.
+func (e *Executor) handleLargeParameters(params map[string]interface{}) (map[string]interface{}, error) {
+	if e.sharedMemory == nil {
+		return params, nil // No storage configured, skip optimization
+	}
+
+	result := make(map[string]interface{})
+	modified := false
+
+	for key, value := range params {
+		size := estimateValueSize(value)
+
+		if size > e.threshold {
+			// Store in shared memory
+			data, err := json.Marshal(value)
+			if err != nil {
+				return nil, fmt.Errorf("failed to serialize large parameter %s: %w", key, err)
+			}
+
+			id := storage.GenerateID()
+			ref, err := e.sharedMemory.Store(id, data, "application/json", map[string]string{
+				"parameter_name": key,
+				"original_size":  fmt.Sprintf("%d", size),
+				"source":         "parameter_optimization",
+			})
+			if err != nil {
+				return nil, fmt.Errorf("failed to store large parameter %s: %w", key, err)
+			}
+
+			// Replace value with DataReference (type-safe, zero collision risk)
+			result[key] = ref
+			modified = true
+		} else {
+			result[key] = value
+		}
+	}
+
+	if !modified {
+		return params, nil // No large params, return original
+	}
+
+	return result, nil
+}
+
+// dereferenceLargeParameters replaces DataReference objects with actual data.
+// This happens transparently before tool execution - tools never see references.
+func (e *Executor) dereferenceLargeParameters(params map[string]interface{}) (map[string]interface{}, error) {
+	if e.sharedMemory == nil {
+		return params, nil
+	}
+
+	result := make(map[string]interface{})
+	hasRefs := false
+
+	for key, value := range params {
+		// Check if value is a DataReference
+		if ref, ok := value.(*loomv1.DataReference); ok {
+			hasRefs = true
+
+			// Retrieve from shared memory
+			data, err := e.sharedMemory.Get(ref)
+			if err != nil {
+				return nil, fmt.Errorf("failed to dereference parameter %s: %w", key, err)
+			}
+
+			// Deserialize back to original type
+			var originalValue interface{}
+			if err := json.Unmarshal(data, &originalValue); err != nil {
+				return nil, fmt.Errorf("failed to deserialize parameter %s: %w", key, err)
+			}
+
+			result[key] = originalValue
+		} else {
+			result[key] = value
+		}
+	}
+
+	if !hasRefs {
+		return params, nil // No references, return original
+	}
+
+	return result, nil
 }
 
 // ListAvailableTools returns all tools available in the executor's registry.
