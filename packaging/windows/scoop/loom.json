@@ -10,9 +10,7 @@
         }
     },
     "bin": "loom-windows-amd64.exe",
-    "checkver": {
-        "github": "https://github.com/teradata-labs/loom"
-    },
+    "checkver": "github",
     "autoupdate": {
         "architecture": {
             "64bit": {
