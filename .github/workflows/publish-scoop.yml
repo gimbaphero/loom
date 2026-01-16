@@ -90,46 +90,18 @@ jobs:
           LOOM_HASH="${{ steps.hashes.outputs.loom_hash }}"
           LOOMS_HASH="${{ steps.hashes.outputs.looms_hash }}"
 
-          # Update loom.json
-          cat > /tmp/loom.json <<EOF
-          {
-              "version": "$VERSION",
-              "description": "LLM agent framework with natural language agent creation",
-              "homepage": "https://github.com/teradata-labs/loom",
-              "license": "Apache-2.0",
-              "architecture": {
-                  "64bit": {
-                      "url": "https://github.com/teradata-labs/loom/releases/download/v$VERSION/loom-windows-amd64.exe.zip",
-                      "hash": "$LOOM_HASH",
-                      "extract_dir": ""
-                  }
-              },
-              "bin": "loom-windows-amd64.exe",
-              "checkver": {
-                  "github": "https://github.com/teradata-labs/loom"
-              },
-              "autoupdate": {
-                  "architecture": {
-                      "64bit": {
-                          "url": "https://github.com/teradata-labs/loom/releases/download/v\$version/loom-windows-amd64.exe.zip"
-                      }
-                  }
-              },
-              "notes": [
-                  "Loom TUI client installed successfully!",
-                  "",
-                  "To install the Loom server as well:",
-                  "  scoop install loom-server",
-                  "",
-                  "Documentation: https://github.com/teradata-labs/loom#readme"
-              ]
-          }
-          EOF
+          # Update loom.json (using packaging file as template)
+          jq --arg ver "$VERSION" \
+             --arg hash "$LOOM_HASH" \
+             --arg url "https://github.com/teradata-labs/loom/releases/download/v$VERSION/loom-windows-amd64.exe.zip" \
+             '.version = $ver | .architecture."64bit".hash = $hash | .architecture."64bit".url = $url' \
+             packaging/windows/scoop/loom.json > /tmp/loom.json
 
-          # Update loom-server.json (using packaging file as template, just update version and hashes)
+          # Update loom-server.json (using packaging file as template)
           jq --arg ver "$VERSION" \
              --arg hash "$LOOMS_HASH" \
-             '.version = $ver | .architecture."64bit".hash = $hash' \
+             --arg url "https://github.com/teradata-labs/loom/releases/download/v$VERSION/looms-windows-amd64.exe.zip" \
+             '.version = $ver | .architecture."64bit".hash = $hash | .architecture."64bit".url = $url' \
              packaging/windows/scoop/loom-server.json > /tmp/loom-server.json
 
       - name: Fork and clone Scoop Extras
