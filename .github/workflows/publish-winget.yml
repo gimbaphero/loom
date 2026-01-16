@@ -181,6 +181,11 @@ jobs:
           $versionFile = "$manifestDir\Teradata.Loom.yaml"
           (Get-Content $versionFile) -replace 'PackageVersion:.*', "PackageVersion: $version" | Set-Content $versionFile
 
+          # Update version in locale manifest
+          $localeFile = "$manifestDir\Teradata.Loom.locale.en-US.yaml"
+          (Get-Content $localeFile) -replace 'PackageVersion:.*', "PackageVersion: $version" | Set-Content $localeFile
+          (Get-Content $localeFile) -replace 'releases/tag/v[\d.]+', "releases/tag/v$version" | Set-Content $localeFile
+
           # Update hash in installer manifest
           $installerFile = "$manifestDir\Teradata.Loom.installer.yaml"
           $content = Get-Content $installerFile -Raw
