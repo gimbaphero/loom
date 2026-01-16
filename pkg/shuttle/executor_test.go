@@ -640,3 +640,62 @@ func TestExecutor_Execute_WithLargeParameters(t *testing.T) {
 		}
 	})
 }
+
+// Test executor metrics for large parameter operations
+func TestExecutor_LargeParameterMetrics(t *testing.T) {
+	// Create shared memory store
+	sharedMem := storage.NewSharedMemoryStore(&storage.Config{
+		MaxMemoryBytes:       1 * 1024 * 1024,
+		CompressionThreshold: 1 * 1024 * 1024,
+		TTLSeconds:           3600,
+	})
+
+	reg := NewRegistry()
+	tool := &mockTool{name: "test"}
+	reg.Register(tool)
+
+	exec := NewExecutor(reg)
+	exec.SetSharedMemory(sharedMem, 2560)
+
+	// Get initial stats
+	statsBefore := exec.Stats()
+	if statsBefore.LargeParamStores != 0 {
+		t.Error("Expected zero initial stores")
+	}
+
+	// Execute with large parameter
+	largeContent := strings.Repeat("x", 3000) // 3KB
+	params := map[string]interface{}{
+		"content": largeContent,
+	}
+
+	_, err := exec.Execute(context.Background(), "test", params)
+	if err != nil {
+		t.Fatalf("Execute() error = %v", err)
+	}
+
+	// Check stats after execution
+	statsAfter := exec.Stats()
+
+	if statsAfter.LargeParamStores != 1 {
+		t.Errorf("Expected 1 store, got %d", statsAfter.LargeParamStores)
+	}
+
+	if statsAfter.LargeParamDerefs != 1 {
+		t.Errorf("Expected 1 dereference, got %d", statsAfter.LargeParamDerefs)
+	}
+
+	if statsAfter.LargeParamBytesStored != 3000 {
+		t.Errorf("Expected 3000 bytes stored, got %d", statsAfter.LargeParamBytesStored)
+	}
+
+	if statsAfter.LargeParamDerefErrors != 0 {
+		t.Errorf("Expected 0 dereference errors, got %d", statsAfter.LargeParamDerefErrors)
+	}
+
+	t.Logf("✓ Metrics tracked correctly:")
+	t.Logf("  Stores: %d", statsAfter.LargeParamStores)
+	t.Logf("  Derefs: %d", statsAfter.LargeParamDerefs)
+	t.Logf("  Bytes: %d", statsAfter.LargeParamBytesStored)
+	t.Logf("  Errors: %d", statsAfter.LargeParamDerefErrors)
+}

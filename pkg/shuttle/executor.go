@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -46,6 +47,12 @@ type Executor struct {
 	permissionChecker *PermissionChecker
 	toolRegistry      ToolRegistry // Tool registry for dynamic tool discovery
 	mcpManager        MCPManager   // MCP manager for dynamic MCP tool registration
+
+	// Metrics for large parameter optimization
+	largeParamStores       atomic.Int64 // Count of parameters stored
+	largeParamDerefs       atomic.Int64 // Count of parameters dereferenced
+	largeParamBytesStored  atomic.Int64 // Total bytes stored
+	largeParamDerefErrors  atomic.Int64 // Count of dereference failures
 }
 
 // NewExecutor creates a new tool executor.
@@ -463,6 +470,10 @@ func (e *Executor) handleLargeParameters(params map[string]interface{}) (map[str
 			// Replace value with DataReference (type-safe, zero collision risk)
 			result[key] = ref
 			modified = true
+
+			// Metrics: track stored parameter
+			e.largeParamStores.Add(1)
+			e.largeParamBytesStored.Add(size)
 		} else {
 			result[key] = value
 		}
@@ -493,16 +504,19 @@ func (e *Executor) dereferenceLargeParameters(params map[string]interface{}) (ma
 			// Retrieve from shared memory
 			data, err := e.sharedMemory.Get(ref)
 			if err != nil {
+				e.largeParamDerefErrors.Add(1) // Metrics: track error
 				return nil, fmt.Errorf("failed to dereference parameter %s: %w", key, err)
 			}
 
 			// Deserialize back to original type
 			var originalValue interface{}
 			if err := json.Unmarshal(data, &originalValue); err != nil {
+				e.largeParamDerefErrors.Add(1) // Metrics: track error
 				return nil, fmt.Errorf("failed to deserialize parameter %s: %w", key, err)
 			}
 
 			result[key] = originalValue
+			e.largeParamDerefs.Add(1) // Metrics: track successful dereference
 		} else {
 			result[key] = value
 		}
@@ -523,6 +537,25 @@ func (e *Executor) ListAvailableTools() []Tool {
 // ListToolsByBackend returns all tools for a specific backend.
 func (e *Executor) ListToolsByBackend(backend string) []Tool {
 	return e.registry.ListByBackend(backend)
+}
+
+// ExecutorStats holds metrics about executor operations.
+type ExecutorStats struct {
+	LargeParamStores      int64 // Count of parameters stored in shared memory
+	LargeParamDerefs      int64 // Count of parameters dereferenced
+	LargeParamBytesStored int64 // Total bytes stored for parameters
+	LargeParamDerefErrors int64 // Count of dereference failures
+}
+
+// Stats returns metrics about executor operations.
+// Includes large parameter optimization statistics.
+func (e *Executor) Stats() ExecutorStats {
+	return ExecutorStats{
+		LargeParamStores:      e.largeParamStores.Load(),
+		LargeParamDerefs:      e.largeParamDerefs.Load(),
+		LargeParamBytesStored: e.largeParamBytesStored.Load(),
+		LargeParamDerefErrors: e.largeParamDerefErrors.Load(),
+	}
 }
 
 // normalizeParametersToSchema attempts to normalize parameter names to match the tool's schema.
