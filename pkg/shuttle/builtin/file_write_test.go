@@ -167,9 +167,9 @@ func TestFileWriteTool_AppendMode(t *testing.T) {
 		// Simulate agent writing large summary incrementally
 		// Each section is under 50KB limit
 		sections := []string{
-			strings.Repeat("Section 1: ", 3000),  // ~33KB
-			strings.Repeat("Section 2: ", 3000),  // ~33KB
-			strings.Repeat("Section 3: ", 3000),  // ~33KB
+			strings.Repeat("Section 1: ", 3000), // ~33KB
+			strings.Repeat("Section 2: ", 3000), // ~33KB
+			strings.Repeat("Section 3: ", 3000), // ~33KB
 		}
 
 		// Create with first section

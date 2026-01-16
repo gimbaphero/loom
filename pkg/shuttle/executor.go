@@ -49,10 +49,10 @@ type Executor struct {
 	mcpManager        MCPManager   // MCP manager for dynamic MCP tool registration
 
 	// Metrics for large parameter optimization
-	largeParamStores       atomic.Int64 // Count of parameters stored
-	largeParamDerefs       atomic.Int64 // Count of parameters dereferenced
-	largeParamBytesStored  atomic.Int64 // Total bytes stored
-	largeParamDerefErrors  atomic.Int64 // Count of dereference failures
+	largeParamStores      atomic.Int64 // Count of parameters stored
+	largeParamDerefs      atomic.Int64 // Count of parameters dereferenced
+	largeParamBytesStored atomic.Int64 // Total bytes stored
+	largeParamDerefErrors atomic.Int64 // Count of dereference failures
 }
 
 // NewExecutor creates a new tool executor.
