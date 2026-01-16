@@ -153,11 +153,18 @@ jobs:
           git push origin --delete "$BRANCH" 2>/dev/null || true
           git checkout -b "$BRANCH"
 
-          # Commit
+          # Configure git for signed commits
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Import GitHub's web-flow GPG key for signing
+          echo "${{ secrets.GPG_PRIVATE_KEY }}" | base64 --decode | gpg --import --batch --yes
+          git config user.signingkey "${{ secrets.GPG_KEY_ID }}"
+          git config commit.gpgsign true
+
+          # Commit with signature
           git add Formula/loom.rb Formula/loom-server.rb
-          git commit -m "loom: Update to version $VERSION"
+          git commit -S -m "loom: Update to version $VERSION"
 
           # Push to homebrew-tap
           git push origin "$BRANCH"
