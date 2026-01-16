@@ -146,6 +146,14 @@ jobs:
           cp /tmp/loom.json bucket/loom.json
           cp /tmp/loom-server.json bucket/loom-server.json
 
+          # Clone Scoop to get formatjson.ps1
+          git clone --depth=1 https://github.com/ScoopInstaller/Scoop.git /tmp/scoop
+
+          # Format manifests with Scoop's official formatter
+          echo "Formatting manifests with formatjson.ps1..."
+          pwsh /tmp/scoop/bin/formatjson.ps1 -App loom -Dir bucket
+          pwsh /tmp/scoop/bin/formatjson.ps1 -App loom-server -Dir bucket
+
           # Commit
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
