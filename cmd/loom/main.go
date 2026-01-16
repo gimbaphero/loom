@@ -70,6 +70,12 @@ Support:
 	rootCmd.PersistentFlags().BoolVar(&tlsInsecure, "tls-insecure", false, "Skip TLS certificate verification (for self-signed certs)")
 	rootCmd.PersistentFlags().StringVar(&tlsCAFile, "tls-ca-file", "", "Path to CA certificate file")
 	rootCmd.PersistentFlags().StringVar(&tlsServerName, "tls-server-name", "", "Override TLS server name verification")
+
+	// Add subcommands
+	rootCmd.AddCommand(chatCmd)
+	rootCmd.AddCommand(agentsCmd)
+	rootCmd.AddCommand(sessionsCmd)
+	rootCmd.AddCommand(mcpCmd)
 }
 
 func main() {
