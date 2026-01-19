@@ -22,7 +22,7 @@ jobs:
     runs-on: macos-latest
     steps:
       - name: Checkout loom repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Determine version
         id: version
