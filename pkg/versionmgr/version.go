@@ -111,9 +111,10 @@ func (v Version) Equal(other Version) bool {
 }
 
 // Compare returns:
-//   -1 if v < other
-//    0 if v == other
-//    1 if v > other
+//
+//	-1 if v < other
+//	 0 if v == other
+//	 1 if v > other
 func (v Version) Compare(other Version) int {
 	if v.Major != other.Major {
 		if v.Major < other.Major {

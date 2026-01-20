@@ -83,7 +83,10 @@ func main() {
 	verbose := fs.Bool("verbose", false, "Show detailed information")
 
 	// Parse only the flags
-	fs.Parse(flagArgs)
+	if err := fs.Parse(flagArgs); err != nil {
+		fmt.Fprintf(os.Stderr, "Error parsing flags: %v\n", err)
+		os.Exit(1)
+	}
 
 	// If --tag is set, enable --commit
 	if *tag {
