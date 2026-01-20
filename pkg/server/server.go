@@ -699,11 +699,12 @@ func (s *Server) RequestToolPermission(ctx context.Context, req *loomv1.ToolPerm
 // ConvertSession converts an agent.Session to proto format.
 func ConvertSession(s *agent.Session) *loomv1.Session {
 	return &loomv1.Session{
-		Id:           s.ID,
-		CreatedAt:    s.CreatedAt.Unix(),
-		UpdatedAt:    s.UpdatedAt.Unix(),
-		State:        "active",
-		TotalCostUsd: s.TotalCostUSD,
+		Id:                s.ID,
+		CreatedAt:         s.CreatedAt.Unix(),
+		UpdatedAt:         s.UpdatedAt.Unix(),
+		State:             "active",
+		TotalCostUsd:      s.TotalCostUSD,
+		ConversationCount: s.MessageCount(),
 	}
 }
 

@@ -6412,7 +6412,7 @@
         "conversationCount": {
           "type": "integer",
           "format": "int32",
-          "title": "Number of conversations"
+          "title": "Total number of messages (user, assistant, and tool messages)"
         },
         "metadata": {
           "type": "object",

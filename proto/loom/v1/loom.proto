@@ -1101,7 +1101,7 @@ message Session {
   // Total cost so far
   double total_cost_usd = 7;
 
-  // Number of conversations
+  // Total number of messages (user, assistant, and tool messages)
   int32 conversation_count = 8;
 
   // Metadata
