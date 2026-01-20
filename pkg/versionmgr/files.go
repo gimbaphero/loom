@@ -17,14 +17,11 @@ package versionmgr
 import (
 	"bufio"
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
-
-	"gopkg.in/yaml.v3"
 )
 
 // FileTarget represents a file that contains version information
@@ -208,40 +205,18 @@ func updateChocolateySpec(path string, version Version) error {
 		return err
 	}
 
-	type Metadata struct {
-		XMLName      xml.Name `xml:"metadata"`
-		Version      string   `xml:"version"`
-		ReleaseNotes string   `xml:"releaseNotes"`
-	}
+	text := string(content)
 
-	type Package struct {
-		XMLName  xml.Name `xml:"package"`
-		Xmlns    string   `xml:"xmlns,attr"`
-		Metadata Metadata `xml:"metadata"`
-	}
-
-	var pkg Package
-	if err := xml.Unmarshal(content, &pkg); err != nil {
-		return fmt.Errorf("failed to parse XML: %w", err)
-	}
-
-	// Update version
-	pkg.Metadata.Version = version.String()
+	// Update version element
+	re1 := regexp.MustCompile(`<version>[^<]*</version>`)
+	text = re1.ReplaceAllString(text, fmt.Sprintf("<version>%s</version>", version.String()))
 
 	// Update releaseNotes URL
 	releaseNotesURL := fmt.Sprintf("https://github.com/teradata-labs/loom/releases/tag/%s", version.WithV())
-	pkg.Metadata.ReleaseNotes = releaseNotesURL
+	re2 := regexp.MustCompile(`<releaseNotes>https://github\.com/teradata-labs/loom/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+</releaseNotes>`)
+	text = re2.ReplaceAllString(text, fmt.Sprintf("<releaseNotes>%s</releaseNotes>", releaseNotesURL))
 
-	// Marshal back to XML with proper formatting
-	output, err := xml.MarshalIndent(pkg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal XML: %w", err)
-	}
-
-	// Add XML declaration
-	final := []byte(xml.Header + string(output) + "\n")
-
-	return os.WriteFile(path, final, 0644)
+	return os.WriteFile(path, []byte(text), 0644)
 }
 
 // extractChocolateySpec extracts version from Chocolatey spec
@@ -323,33 +298,20 @@ func updateWingetInstaller(path string, version Version) error {
 		return err
 	}
 
-	var data map[string]any
-	if err := yaml.Unmarshal(content, &data); err != nil {
-		return fmt.Errorf("failed to parse YAML: %w", err)
-	}
+	text := string(content)
 
 	// Update PackageVersion
-	data["PackageVersion"] = version.String()
+	re1 := regexp.MustCompile(`PackageVersion: [0-9]+\.[0-9]+\.[0-9]+`)
+	text = re1.ReplaceAllString(text, fmt.Sprintf("PackageVersion: %s", version.String()))
 
-	// Update URLs in Installers
-	if installers, ok := data["Installers"].([]any); ok {
-		for _, installer := range installers {
-			if instMap, ok := installer.(map[string]interface{}); ok {
-				if url, ok := instMap["InstallerUrl"].(string); ok {
-					re := regexp.MustCompile(`/v[0-9]+\.[0-9]+\.[0-9]+/`)
-					instMap["InstallerUrl"] = re.ReplaceAllString(url, fmt.Sprintf("/%s/", version.WithV()))
-				}
-			}
-		}
-	}
+	// Update URLs with version
+	re2 := regexp.MustCompile(`/v[0-9]+\.[0-9]+\.[0-9]+/`)
+	text = re2.ReplaceAllString(text, fmt.Sprintf("/%s/", version.WithV()))
 
-	// Marshal back to YAML
-	output, err := yaml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %w", err)
-	}
+	// Update ReleaseDate (if present) - keep the format that's there
+	// We don't need to update this actually, as it's set during release
 
-	return os.WriteFile(path, output, 0644)
+	return os.WriteFile(path, []byte(text), 0644)
 }
 
 // extractWingetInstaller extracts version from Winget installer
@@ -359,16 +321,13 @@ func extractWingetInstaller(path string) ([]string, error) {
 		return nil, err
 	}
 
-	var data map[string]any
-	if err := yaml.Unmarshal(content, &data); err != nil {
-		return nil, err
+	re := regexp.MustCompile(`PackageVersion: ([0-9]+\.[0-9]+\.[0-9]+)`)
+	matches := re.FindStringSubmatch(string(content))
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("PackageVersion not found")
 	}
 
-	if version, ok := data["PackageVersion"].(string); ok {
-		return []string{version}, nil
-	}
-
-	return nil, fmt.Errorf("PackageVersion not found")
+	return []string{matches[1]}, nil
 }
 
 // updateWingetLocale updates Winget locale YAML
@@ -378,28 +337,21 @@ func updateWingetLocale(path string, version Version) error {
 		return err
 	}
 
-	var data map[string]any
-	if err := yaml.Unmarshal(content, &data); err != nil {
-		return fmt.Errorf("failed to parse YAML: %w", err)
-	}
+	text := string(content)
 
 	// Update PackageVersion
-	data["PackageVersion"] = version.String()
+	re1 := regexp.MustCompile(`PackageVersion: [0-9]+\.[0-9]+\.[0-9]+`)
+	text = re1.ReplaceAllString(text, fmt.Sprintf("PackageVersion: %s", version.String()))
 
-	// Update ReleaseNotes and ReleaseNotesUrl
-	releaseNotesURL := fmt.Sprintf("See https://github.com/teradata-labs/loom/releases/tag/%s", version.WithV())
-	releaseNotesURLFull := fmt.Sprintf("https://github.com/teradata-labs/loom/releases/tag/%s", version.WithV())
+	// Update ReleaseNotes URL
+	re2 := regexp.MustCompile(`ReleaseNotes: See https://github\.com/teradata-labs/loom/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+`)
+	text = re2.ReplaceAllString(text, fmt.Sprintf("ReleaseNotes: See https://github.com/teradata-labs/loom/releases/tag/%s", version.WithV()))
 
-	data["ReleaseNotes"] = releaseNotesURL
-	data["ReleaseNotesUrl"] = releaseNotesURLFull
+	// Update ReleaseNotesUrl
+	re3 := regexp.MustCompile(`ReleaseNotesUrl: https://github\.com/teradata-labs/loom/releases/tag/v[0-9]+\.[0-9]+\.[0-9]+`)
+	text = re3.ReplaceAllString(text, fmt.Sprintf("ReleaseNotesUrl: https://github.com/teradata-labs/loom/releases/tag/%s", version.WithV()))
 
-	// Marshal back to YAML
-	output, err := yaml.Marshal(data)
-	if err != nil {
-		return fmt.Errorf("failed to marshal YAML: %w", err)
-	}
-
-	return os.WriteFile(path, output, 0644)
+	return os.WriteFile(path, []byte(text), 0644)
 }
 
 // extractWingetLocale extracts version from Winget locale
@@ -409,16 +361,13 @@ func extractWingetLocale(path string) ([]string, error) {
 		return nil, err
 	}
 
-	var data map[string]any
-	if err := yaml.Unmarshal(content, &data); err != nil {
-		return nil, err
+	re := regexp.MustCompile(`PackageVersion: ([0-9]+\.[0-9]+\.[0-9]+)`)
+	matches := re.FindStringSubmatch(string(content))
+	if len(matches) < 2 {
+		return nil, fmt.Errorf("PackageVersion not found")
 	}
 
-	if version, ok := data["PackageVersion"].(string); ok {
-		return []string{version}, nil
-	}
-
-	return nil, fmt.Errorf("PackageVersion not found")
+	return []string{matches[1]}, nil
 }
 
 // updateReadmeVersion updates README.md version badge
