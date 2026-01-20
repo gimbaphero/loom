@@ -355,6 +355,7 @@ func gitCommit(repoRoot string, version versionmgr.Version) error {
 	}
 
 	commitMsg := fmt.Sprintf("Bump version to %s\n\nCo-Authored-By: Loom Version Manager <noreply@teradata.com>", version.WithV())
+	// #nosec G204 -- version is validated by Version struct, not arbitrary user input
 	cmd = exec.Command("git", "commit", "-m", commitMsg)
 	cmd.Dir = repoRoot
 	return cmd.Run()
@@ -365,6 +366,7 @@ func gitTag(repoRoot string, version versionmgr.Version) error {
 	tagName := version.WithV()
 	tagMsg := fmt.Sprintf("Release %s", tagName)
 
+	// #nosec G204 -- version is validated by Version struct, not arbitrary user input
 	cmd := exec.Command("git", "tag", "-a", tagName, "-m", tagMsg)
 	cmd.Dir = repoRoot
 	return cmd.Run()

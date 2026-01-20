@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package versionmgr manages atomic version updates with backup/rollback.
+// #nosec G304 G306 -- File paths are from GetAllTargets(), no user input, files must be readable
 package versionmgr
 
 import (

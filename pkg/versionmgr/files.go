@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package versionmgr manages version updates across multiple file formats.
+// All file paths are from hardcoded GetAllTargets() with no user input.
+// #nosec G304 G306 -- File paths are validated, controlled by tool, and files must be world-readable
 package versionmgr
 
 import (
@@ -106,6 +109,7 @@ func GetAllTargets(repoRoot string) []FileTarget {
 
 // updateVersionFile updates the canonical VERSION file (single line)
 func updateVersionFile(path string, version Version) error {
+	// #nosec G306 -- VERSION file needs to be readable by all users for build tools
 	return os.WriteFile(path, []byte(version.String()+"\n"), 0644)
 }
 
@@ -253,7 +257,7 @@ func updateScoopManifest(path string, version Version) error {
 	// Update URLs in architecture section
 	if arch, ok := manifest["architecture"].(map[string]any); ok {
 		for _, archData := range arch {
-			if archMap, ok := archData.(map[string]interface{}); ok {
+			if archMap, ok := archData.(map[string]any); ok {
 				if url, ok := archMap["url"].(string); ok {
 					// Replace version in URL
 					re := regexp.MustCompile(`/v[0-9]+\.[0-9]+\.[0-9]+/`)
