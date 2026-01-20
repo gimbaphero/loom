@@ -395,6 +395,9 @@ type MCPServerConfig struct {
 	// Transport is the communication transport (default: "stdio")
 	Transport string `mapstructure:"transport"`
 
+	// URL is the server URL (required for http/sse transport)
+	URL string `mapstructure:"url"`
+
 	// WorkingDir is the working directory for the MCP server process (optional)
 	WorkingDir string `mapstructure:"working_dir"`
 }

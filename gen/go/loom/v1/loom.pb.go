@@ -7684,7 +7684,9 @@ type AddMCPServerRequest struct {
 	// Whether to start the server immediately after adding
 	AutoStart bool `protobuf:"varint,8,opt,name=auto_start,json=autoStart,proto3" json:"auto_start,omitempty"`
 	// Tool filter configuration
-	ToolFilter    *ToolFilterConfig `protobuf:"bytes,9,opt,name=tool_filter,json=toolFilter,proto3" json:"tool_filter,omitempty"`
+	ToolFilter *ToolFilterConfig `protobuf:"bytes,9,opt,name=tool_filter,json=toolFilter,proto3" json:"tool_filter,omitempty"`
+	// Server URL (required for http/sse transport)
+	Url           string `protobuf:"bytes,10,opt,name=url,proto3" json:"url,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -7782,6 +7784,13 @@ func (x *AddMCPServerRequest) GetToolFilter() *ToolFilterConfig {
 	return nil
 }
 
+func (x *AddMCPServerRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
+}
+
 // AddMCPServerResponse confirms MCP server addition.
 type AddMCPServerResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -7869,8 +7878,10 @@ type UpdateMCPServerRequest struct {
 	ToolFilter *ToolFilterConfig `protobuf:"bytes,9,opt,name=tool_filter,json=toolFilter,proto3" json:"tool_filter,omitempty"`
 	// Timeout in seconds for restart operation (default: 1 second)
 	TimeoutSeconds int32 `protobuf:"varint,10,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Server URL (required for http/sse transport)
+	Url           string `protobuf:"bytes,11,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateMCPServerRequest) Reset() {
@@ -7971,6 +7982,13 @@ func (x *UpdateMCPServerRequest) GetTimeoutSeconds() int32 {
 		return x.TimeoutSeconds
 	}
 	return 0
+}
+
+func (x *UpdateMCPServerRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
 }
 
 // DeleteMCPServerRequest deletes an MCP server.
@@ -8311,8 +8329,10 @@ type TestMCPServerConnectionRequest struct {
 	ToolFilter *ToolFilterConfig `protobuf:"bytes,6,opt,name=tool_filter,json=toolFilter,proto3" json:"tool_filter,omitempty"`
 	// Timeout for connection test in seconds (default: 10)
 	TimeoutSeconds int32 `protobuf:"varint,7,opt,name=timeout_seconds,json=timeoutSeconds,proto3" json:"timeout_seconds,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// Server URL (required for http/sse transport)
+	Url           string `protobuf:"bytes,8,opt,name=url,proto3" json:"url,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *TestMCPServerConnectionRequest) Reset() {
@@ -8392,6 +8412,13 @@ func (x *TestMCPServerConnectionRequest) GetTimeoutSeconds() int32 {
 		return x.TimeoutSeconds
 	}
 	return 0
+}
+
+func (x *TestMCPServerConnectionRequest) GetUrl() string {
+	if x != nil {
+		return x.Url
+	}
+	return ""
 }
 
 // TestMCPServerConnectionResponse returns test results.
@@ -10229,7 +10256,7 @@ const file_loom_v1_loom_proto_rawDesc = "" +
 	"\x10ToolFilterConfig\x12\x10\n" +
 	"\x03all\x18\x01 \x01(\bR\x03all\x12\x18\n" +
 	"\ainclude\x18\x02 \x03(\tR\ainclude\x12\x18\n" +
-	"\aexclude\x18\x03 \x03(\tR\aexclude\"\xfc\x02\n" +
+	"\aexclude\x18\x03 \x03(\tR\aexclude\"\x8e\x03\n" +
 	"\x13AddMCPServerRequest\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\x12\x1c\n" +
@@ -10242,14 +10269,16 @@ const file_loom_v1_loom_proto_rawDesc = "" +
 	"\n" +
 	"auto_start\x18\b \x01(\bR\tautoStart\x12:\n" +
 	"\vtool_filter\x18\t \x01(\v2\x19.loom.v1.ToolFilterConfigR\n" +
-	"toolFilter\x1a6\n" +
+	"toolFilter\x12\x10\n" +
+	"\x03url\x18\n" +
+	" \x01(\tR\x03url\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"z\n" +
 	"\x14AddMCPServerResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12.\n" +
-	"\x06server\x18\x03 \x01(\v2\x16.loom.v1.MCPServerInfoR\x06server\"\xc7\x03\n" +
+	"\x06server\x18\x03 \x01(\v2\x16.loom.v1.MCPServerInfoR\x06server\"\xd9\x03\n" +
 	"\x16UpdateMCPServerRequest\x12\x1f\n" +
 	"\vserver_name\x18\x01 \x01(\tR\n" +
 	"serverName\x12\x18\n" +
@@ -10264,7 +10293,8 @@ const file_loom_v1_loom_proto_rawDesc = "" +
 	"\vtool_filter\x18\t \x01(\v2\x19.loom.v1.ToolFilterConfigR\n" +
 	"toolFilter\x12'\n" +
 	"\x0ftimeout_seconds\x18\n" +
-	" \x01(\x05R\x0etimeoutSeconds\x1a6\n" +
+	" \x01(\x05R\x0etimeoutSeconds\x12\x10\n" +
+	"\x03url\x18\v \x01(\tR\x03url\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"O\n" +
@@ -10290,7 +10320,7 @@ const file_loom_v1_loom_proto_rawDesc = "" +
 	"\x14last_check_timestamp\x18\x02 \x01(\x03R\x12lastCheckTimestamp\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x12\x1d\n" +
 	"\n" +
-	"latency_ms\x18\x04 \x01(\x03R\tlatencyMs\"\xee\x02\n" +
+	"latency_ms\x18\x04 \x01(\x03R\tlatencyMs\"\x80\x03\n" +
 	"\x1eTestMCPServerConnectionRequest\x12\x1c\n" +
 	"\ttransport\x18\x01 \x01(\tR\ttransport\x12\x18\n" +
 	"\acommand\x18\x02 \x01(\tR\acommand\x12\x12\n" +
@@ -10300,7 +10330,8 @@ const file_loom_v1_loom_proto_rawDesc = "" +
 	"workingDir\x12:\n" +
 	"\vtool_filter\x18\x06 \x01(\v2\x19.loom.v1.ToolFilterConfigR\n" +
 	"toolFilter\x12'\n" +
-	"\x0ftimeout_seconds\x18\a \x01(\x05R\x0etimeoutSeconds\x1a6\n" +
+	"\x0ftimeout_seconds\x18\a \x01(\x05R\x0etimeoutSeconds\x12\x10\n" +
+	"\x03url\x18\b \x01(\tR\x03url\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xcd\x01\n" +

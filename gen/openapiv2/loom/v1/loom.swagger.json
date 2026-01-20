@@ -2985,6 +2985,10 @@
           "type": "integer",
           "format": "int32",
           "title": "Timeout in seconds for restart operation (default: 1 second)"
+        },
+        "url": {
+          "type": "string",
+          "title": "Server URL (required for http/sse transport)"
         }
       },
       "description": "UpdateMCPServerRequest updates an MCP server."
@@ -3085,6 +3089,10 @@
         "toolFilter": {
           "$ref": "#/definitions/v1ToolFilterConfig",
           "title": "Tool filter configuration"
+        },
+        "url": {
+          "type": "string",
+          "title": "Server URL (required for http/sse transport)"
         }
       },
       "description": "AddMCPServerRequest adds a new MCP server."
@@ -7091,6 +7099,10 @@
           "type": "integer",
           "format": "int32",
           "title": "Timeout for connection test in seconds (default: 10)"
+        },
+        "url": {
+          "type": "string",
+          "title": "Server URL (required for http/sse transport)"
         }
       },
       "description": "TestMCPServerConnectionRequest tests an MCP server configuration."

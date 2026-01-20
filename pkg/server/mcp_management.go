@@ -185,6 +185,7 @@ func (s *MultiAgentServer) AddMCPServer(ctx context.Context, req *loomv1.AddMCPS
 		Args:       req.Args,
 		Env:        req.Env,
 		Transport:  req.Transport,
+		URL:        req.Url, // Note: req.Url from proto (lowercase 'rl')
 		Enabled:    req.Enabled,
 		ToolFilter: toolFilter,
 	}
@@ -353,6 +354,7 @@ func (s *MultiAgentServer) UpdateMCPServer(ctx context.Context, req *loomv1.Upda
 		Args:       req.Args,
 		Env:        req.Env,
 		Transport:  req.Transport,
+		URL:        req.Url, // Note: req.Url from proto (lowercase 'rl')
 		Enabled:    req.Enabled,
 		ToolFilter: toolFilter,
 	}
