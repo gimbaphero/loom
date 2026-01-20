@@ -26,6 +26,74 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Extract version from tag
+        id: version
+        shell: pwsh
+        run: |
+          if ("${{ github.ref }}" -match "refs/tags/v(.+)") {
+            $version = $matches[1]
+            Write-Host "Version: $version"
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "Not a tag push, using version from VERSION file"
+            $version = Get-Content VERSION
+            $version = $version.TrimStart('v')
+            echo "version=$version" >> $env:GITHUB_OUTPUT
+          }
+
+      - name: Wait for release assets to be available
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          Write-Host "Waiting for release v${{ steps.version.outputs.version }} assets to be available..."
+          $maxAttempts = 30
+          $attempt = 0
+          $found = $false
+
+          while ($attempt -lt $maxAttempts -and -not $found) {
+            $attempt++
+            Write-Host "Attempt $attempt/$maxAttempts..."
+
+            try {
+              # Check if both checksum files exist
+              $loomUrl = "https://github.com/teradata-labs/loom/releases/download/v${{ steps.version.outputs.version }}/loom-windows-amd64.exe.zip.sha256"
+              $loomsUrl = "https://github.com/teradata-labs/loom/releases/download/v${{ steps.version.outputs.version }}/looms-windows-amd64.exe.zip.sha256"
+
+              $loomCheck = Invoke-WebRequest -Uri $loomUrl -Method Head -ErrorAction SilentlyContinue
+              $loomsCheck = Invoke-WebRequest -Uri $loomsUrl -Method Head -ErrorAction SilentlyContinue
+
+              if ($loomCheck.StatusCode -eq 200 -and $loomsCheck.StatusCode -eq 200) {
+                Write-Host "✓ Release assets are available!"
+                $found = $true
+              }
+            } catch {
+              Write-Host "Assets not ready yet, waiting 10 seconds..."
+              Start-Sleep -Seconds 10
+            }
+          }
+
+          if (-not $found) {
+            throw "Release assets not available after $maxAttempts attempts. Please ensure the release workflow has completed."
+          }
+
+      - name: Update checksums from release
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: pwsh
+        run: |
+          Write-Host "Updating checksums for version ${{ steps.version.outputs.version }}..."
+          cd packaging/windows/chocolatey
+
+          # Run the update-checksums script
+          .\update-checksums.ps1 -Version "${{ steps.version.outputs.version }}"
+
+          # Verify checksums were updated (no longer all zeros)
+          $content = Get-Content "tools\chocolateyinstall.ps1" -Raw
+          if ($content -match "checksum64\s*=\s*'0{64}'") {
+            throw "Checksums were not updated properly! Still contains placeholder zeros."
+          }
+
+          Write-Host "✓ Checksums updated successfully"
+
       - name: Verify Chocolatey is installed
         shell: pwsh
         run: |
