@@ -99,9 +99,9 @@ type Agent struct {
 	tokenCounter *TokenCounter
 
 	// Automatic finding extraction
-	enableFindingExtraction         bool // Whether automatic extraction is enabled
-	extractionCadence               int  // Number of tool executions between extractions
-	toolExecutionsSinceExtraction   int  // Counter for tool executions since last extraction
+	enableFindingExtraction       bool // Whether automatic extraction is enabled
+	extractionCadence             int  // Number of tool executions between extractions
+	toolExecutionsSinceExtraction int  // Counter for tool executions since last extraction
 }
 
 // Config holds agent configuration.
