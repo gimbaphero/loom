@@ -129,7 +129,9 @@ func (t *StreamableHTTPTransport) Send(ctx context.Context, message []byte) erro
 		req.Header.Set("Mcp-Session-Id", sessionID)
 	}
 
-	t.logger.Debug("Sending POST request", zap.String("endpoint", t.endpoint))
+	t.logger.Debug("Sending POST request",
+		zap.String("endpoint", t.endpoint),
+		zap.ByteString("message", message))
 
 	// Send request
 	resp, err := t.client.Do(req)
@@ -156,13 +158,29 @@ func (t *StreamableHTTPTransport) Send(ctx context.Context, message []byte) erro
 
 	// Handle response based on Content-Type
 	contentType := resp.Header.Get("Content-Type")
+	t.logger.Debug("Received response",
+		zap.String("content-type", contentType),
+		zap.Int("status", resp.StatusCode))
+
 	switch {
 	case contentType == "text/event-stream":
 		// SSE stream response
-		return t.handleSSEStream(ctx, resp.Body)
+		t.logger.Debug("Handling SSE stream response")
+
+		// For single-event responses, the server might close the connection immediately
+		// Read all the data first to avoid "read on closed response body" errors
+		allData, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("failed to read SSE response: %w", err)
+		}
+		t.logger.Debug("Read SSE response data", zap.Int("bytes", len(allData)))
+
+		// Parse the SSE data from the buffer
+		return t.handleSSEStream(ctx, io.NopCloser(bytes.NewReader(allData)))
 
 	case contentType == "application/json":
 		// Single JSON response
+		t.logger.Debug("Handling JSON response")
 		data, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return fmt.Errorf("failed to read response: %w", err)
@@ -181,12 +199,16 @@ func (t *StreamableHTTPTransport) Send(ctx context.Context, message []byte) erro
 
 // Receive implements Transport by receiving the next message.
 func (t *StreamableHTTPTransport) Receive(ctx context.Context) ([]byte, error) {
+	t.logger.Debug("Waiting for message from transport")
 	select {
 	case <-ctx.Done():
+		t.logger.Debug("Context cancelled while waiting for message")
 		return nil, ctx.Err()
 	case err := <-t.errors:
+		t.logger.Debug("Received error from transport", zap.Error(err))
 		return nil, err
 	case msg := <-t.messages:
+		t.logger.Debug("Received message from transport", zap.ByteString("message", msg))
 		return msg, nil
 	}
 }
@@ -225,6 +247,7 @@ func (t *StreamableHTTPTransport) Close() error {
 
 // handleSSEStream processes an SSE response stream.
 func (t *StreamableHTTPTransport) handleSSEStream(ctx context.Context, body io.ReadCloser) error {
+	t.logger.Debug("Starting SSE stream handler")
 	t.activeStreams.Add(1)
 	go func() {
 		defer t.activeStreams.Done()
@@ -233,12 +256,20 @@ func (t *StreamableHTTPTransport) handleSSEStream(ctx context.Context, body io.R
 		parser := NewSSEParser(body)
 
 		for {
+			t.logger.Debug("Parsing SSE event")
 			event, err := parser.ParseEvent()
 			if err != nil {
 				if err == io.EOF {
-					t.logger.Debug("SSE stream closed")
+					t.logger.Debug("SSE stream closed normally")
 					return
 				}
+				// Check if error is due to closed body (normal for single-response streams)
+				errMsg := err.Error()
+				if errMsg == "http: read on closed response body" || errMsg == "read on closed response body" {
+					t.logger.Debug("SSE stream closed by server")
+					return
+				}
+				t.logger.Warn("SSE stream error", zap.Error(err))
 				select {
 				case t.errors <- fmt.Errorf("SSE parse error: %w", err):
 				default:
@@ -251,12 +282,19 @@ func (t *StreamableHTTPTransport) handleSSEStream(ctx context.Context, body io.R
 				t.resumption.AddEvent(*event)
 			}
 
+			t.logger.Debug("SSE event parsed successfully",
+				zap.String("event_id", event.ID),
+				zap.ByteString("data", event.Data))
+
 			// Send message to channel
 			select {
 			case t.messages <- event.Data:
+				t.logger.Debug("Message sent to channel")
 			case <-t.streamCtx.Done():
+				t.logger.Debug("Stream context cancelled")
 				return
 			case <-ctx.Done():
+				t.logger.Debug("Request context cancelled")
 				return
 			}
 		}

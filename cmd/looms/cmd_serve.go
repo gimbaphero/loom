@@ -358,9 +358,17 @@ func runServe(cmd *cobra.Command, args []string) {
 	// Export config values to environment variables for tools
 	exportConfigToEnv(config)
 
-	// Create production logger with INFO level (stack traces only for ERROR level)
+	// Create production logger (stack traces only for ERROR level)
 	zapConfig := zap.NewProductionConfig()
-	zapConfig.Level = zap.NewAtomicLevelAt(zap.InfoLevel)
+
+	// Parse and set log level from config
+	logLevel := zap.InfoLevel // default
+	if config.Logging.Level != "" {
+		if err := logLevel.UnmarshalText([]byte(config.Logging.Level)); err != nil {
+			log.Printf("Invalid log level %q, using INFO: %v", config.Logging.Level, err)
+		}
+	}
+	zapConfig.Level = zap.NewAtomicLevelAt(logLevel)
 
 	// Configure log output file if specified
 	if config.Logging.File != "" {
