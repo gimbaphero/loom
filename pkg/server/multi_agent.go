@@ -116,16 +116,20 @@ type workflowSubAgentContext struct {
 
 // spawnedAgentContext tracks a spawned sub-agent for lifecycle management
 type spawnedAgentContext struct {
-	parentSessionID  string            // Parent agent's session ID
-	parentAgentID    string            // Parent agent's ID
-	subAgentID       string            // Spawned agent's ID (may include workflow prefix)
-	subSessionID     string            // Spawned agent's session ID
-	workflowID       string            // Optional workflow namespace
-	agent            *agent.Agent      // Agent instance
-	spawnedAt        time.Time         // When the agent was spawned
-	subscriptions    []string          // Topics subscribed to
-	metadata         map[string]string // Custom metadata
-	cancelFunc       context.CancelFunc // Cancel function for cleanup
+	parentSessionID    string             // Parent agent's session ID
+	parentAgentID      string             // Parent agent's ID
+	subAgentID         string             // Spawned agent's ID (may include workflow prefix)
+	subSessionID       string             // Spawned agent's session ID
+	workflowID         string             // Optional workflow namespace
+	agent              *agent.Agent       // Agent instance
+	spawnedAt          time.Time          // When the agent was spawned
+	subscriptions      []string           // Topics subscribed to (topic names)
+	subscriptionIDs    []string           // Subscription IDs for cleanup
+	notifyChannels     []chan struct{}    // Notification channels for event-driven processing
+	metadata           map[string]string  // Custom metadata
+	cancelFunc         context.CancelFunc // Cancel function for session cleanup
+	loopCancelFunc     context.CancelFunc // Cancel function for background loop
+	autoDespawnTimeout time.Duration      // Inactivity timeout before auto-despawn
 }
 
 // NewMultiAgentServer creates a new multi-agent LoomService server.
@@ -494,21 +498,21 @@ func (s *MultiAgentServer) Weave(ctx context.Context, req *loomv1.WeaveRequest) 
 	}
 	s.mu.RUnlock()
 
-	// Register spawn_agent tool if not already registered
-	// This allows agents to spawn sub-agents dynamically
+	// Register manage_ephemeral_agents tool if not already registered
+	// This allows agents to spawn and despawn sub-agents dynamically
 	toolNames := ag.ListTools()
-	hasSpawnAgent := false
+	hasManageTool := false
 	for _, name := range toolNames {
-		if name == "spawn_agent" {
-			hasSpawnAgent = true
+		if name == "manage_ephemeral_agents" {
+			hasManageTool = true
 			break
 		}
 	}
-	if !hasSpawnAgent {
-		spawnTool := builtin.NewSpawnAgentTool(s, sessionID, agentID)
-		ag.RegisterTool(spawnTool)
+	if !hasManageTool {
+		manageTool := builtin.NewManageEphemeralAgentsTool(s, sessionID, agentID)
+		ag.RegisterTool(manageTool)
 		if s.logger != nil {
-			s.logger.Debug("Registered spawn_agent tool for session",
+			s.logger.Debug("Registered manage_ephemeral_agents tool for session",
 				zap.String("session_id", sessionID),
 				zap.String("agent_id", agentID))
 		}
@@ -569,21 +573,21 @@ func (s *MultiAgentServer) StreamWeave(req *loomv1.WeaveRequest, stream loomv1.L
 		sessionID = GenerateSessionID()
 	}
 
-	// Register spawn_agent tool if not already registered
-	// This allows agents to spawn sub-agents dynamically
+	// Register manage_ephemeral_agents tool if not already registered
+	// This allows agents to spawn and despawn sub-agents dynamically
 	toolNames := ag.ListTools()
-	hasSpawnAgent := false
+	hasManageTool := false
 	for _, name := range toolNames {
-		if name == "spawn_agent" {
-			hasSpawnAgent = true
+		if name == "manage_ephemeral_agents" {
+			hasManageTool = true
 			break
 		}
 	}
-	if !hasSpawnAgent {
-		spawnTool := builtin.NewSpawnAgentTool(s, sessionID, resolvedAgentID)
-		ag.RegisterTool(spawnTool)
+	if !hasManageTool {
+		manageTool := builtin.NewManageEphemeralAgentsTool(s, sessionID, resolvedAgentID)
+		ag.RegisterTool(manageTool)
 		if s.logger != nil {
-			s.logger.Debug("Registered spawn_agent tool for streaming session",
+			s.logger.Debug("Registered manage_ephemeral_agents tool for streaming session",
 				zap.String("session_id", sessionID),
 				zap.String("agent_id", resolvedAgentID))
 		}
