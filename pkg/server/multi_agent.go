@@ -94,6 +94,10 @@ type MultiAgentServer struct {
 	workflowSubAgents   map[string]*workflowSubAgentContext // "coordinatorSessionID:agentID" → context
 	workflowSubAgentsMu sync.RWMutex
 
+	// Spawned sub-agent tracking for lifecycle management
+	spawnedAgents   map[string]*spawnedAgentContext // sessionID → spawned agent context
+	spawnedAgentsMu sync.RWMutex
+
 	// LLM concurrency control to prevent rate limiting
 	llmSemaphore        chan struct{} // Semaphore to limit concurrent LLM calls
 	llmConcurrencyLimit int           // Max concurrent LLM calls (configurable)
@@ -108,6 +112,20 @@ type workflowSubAgentContext struct {
 	cancelFunc          context.CancelFunc
 	lastChecked         time.Time
 	consecutiveFailures int // Track failures for exponential backoff
+}
+
+// spawnedAgentContext tracks a spawned sub-agent for lifecycle management
+type spawnedAgentContext struct {
+	parentSessionID  string            // Parent agent's session ID
+	parentAgentID    string            // Parent agent's ID
+	subAgentID       string            // Spawned agent's ID (may include workflow prefix)
+	subSessionID     string            // Spawned agent's session ID
+	workflowID       string            // Optional workflow namespace
+	agent            *agent.Agent      // Agent instance
+	spawnedAt        time.Time         // When the agent was spawned
+	subscriptions    []string          // Topics subscribed to
+	metadata         map[string]string // Custom metadata
+	cancelFunc       context.CancelFunc // Cancel function for cleanup
 }
 
 // NewMultiAgentServer creates a new multi-agent LoomService server.
@@ -148,6 +166,7 @@ func NewMultiAgentServer(agents map[string]*agent.Agent, store *agent.SessionSto
 		workflowStore:                     NewWorkflowStore(),                        // Initialize workflow execution store
 		registry:                          nil,                                       // Set via SetAgentRegistry()
 		workflowSubAgents:                 make(map[string]*workflowSubAgentContext), // Initialize workflow sub-agent tracking
+		spawnedAgents:                     make(map[string]*spawnedAgentContext),     // Initialize spawned sub-agent tracking
 		llmConcurrencyLimit:               defaultLLMConcurrency,
 		llmSemaphore:                      make(chan struct{}, defaultLLMConcurrency),
 	}
@@ -475,6 +494,26 @@ func (s *MultiAgentServer) Weave(ctx context.Context, req *loomv1.WeaveRequest) 
 	}
 	s.mu.RUnlock()
 
+	// Register spawn_agent tool if not already registered
+	// This allows agents to spawn sub-agents dynamically
+	toolNames := ag.ListTools()
+	hasSpawnAgent := false
+	for _, name := range toolNames {
+		if name == "spawn_agent" {
+			hasSpawnAgent = true
+			break
+		}
+	}
+	if !hasSpawnAgent {
+		spawnTool := builtin.NewSpawnAgentTool(s, sessionID, agentID)
+		ag.RegisterTool(spawnTool)
+		if s.logger != nil {
+			s.logger.Debug("Registered spawn_agent tool for session",
+				zap.String("session_id", sessionID),
+				zap.String("agent_id", agentID))
+		}
+	}
+
 	// Execute agent chat
 	resp, err := ag.Chat(ctx, sessionID, req.Query)
 	if err != nil {
@@ -528,6 +567,26 @@ func (s *MultiAgentServer) StreamWeave(req *loomv1.WeaveRequest, stream loomv1.L
 	sessionID := req.SessionId
 	if sessionID == "" {
 		sessionID = GenerateSessionID()
+	}
+
+	// Register spawn_agent tool if not already registered
+	// This allows agents to spawn sub-agents dynamically
+	toolNames := ag.ListTools()
+	hasSpawnAgent := false
+	for _, name := range toolNames {
+		if name == "spawn_agent" {
+			hasSpawnAgent = true
+			break
+		}
+	}
+	if !hasSpawnAgent {
+		spawnTool := builtin.NewSpawnAgentTool(s, sessionID, resolvedAgentID)
+		ag.RegisterTool(spawnTool)
+		if s.logger != nil {
+			s.logger.Debug("Registered spawn_agent tool for streaming session",
+				zap.String("session_id", sessionID),
+				zap.String("agent_id", resolvedAgentID))
+		}
 	}
 
 	// Spawn workflow sub-agents if this is a workflow coordinator
@@ -1665,6 +1724,9 @@ func (s *MultiAgentServer) DeleteSession(ctx context.Context, req *loomv1.Delete
 			break
 		}
 	}
+
+	// Cleanup any spawned sub-agents before deleting parent session
+	s.cleanupSpawnedAgentsByParent(req.SessionId)
 
 	// Also delete from persistent store
 	if s.sessionStore != nil {
