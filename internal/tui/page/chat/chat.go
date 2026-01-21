@@ -18,7 +18,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"sort"
 	"strings"
 	"time"
@@ -52,6 +51,7 @@ import (
 	"github.com/teradata-labs/loom/internal/tui/components/dialogs/commands"
 	"github.com/teradata-labs/loom/internal/tui/components/dialogs/filepicker"
 	mcpdialog "github.com/teradata-labs/loom/internal/tui/components/dialogs/mcp"
+	"github.com/teradata-labs/loom/internal/tui/components/dialogs/pattern"
 	"github.com/teradata-labs/loom/internal/tui/page"
 	"github.com/teradata-labs/loom/internal/tui/styles"
 	"github.com/teradata-labs/loom/internal/tui/util"
@@ -569,35 +569,10 @@ func (p *chatPage) Update(msg tea.Msg) (util.Model, tea.Cmd) {
 		return p, nil
 
 	case sidebar.PatternFileSelectedMsg:
-		// Open pattern file in editor as attachment
-		// Read the file first
-		data, err := os.ReadFile(msg.FilePath)
-		if err != nil {
-			return p, util.ReportError(fmt.Errorf("failed to read pattern file: %w", err))
-		}
-
-		// Create attachment
-		attachment := message.Attachment{
-			Type:     "file",
-			Name:     filepath.Base(msg.FilePath),
-			Path:     msg.FilePath,
-			FilePath: msg.FilePath,
-			FileName: filepath.Base(msg.FilePath),
-			Data:     data,
-			Content:  data,
-			MimeType: "text/yaml",
-		}
-
-		// Send to editor
-		u, cmd := p.editor.Update(filepicker.FilePickedMsg{Attachment: attachment})
-		p.editor = u.(editor.Editor)
-
-		// Focus the editor after adding attachment
-		p.focusedPane = PanelTypeEditor
-		p.editor.Focus()
-		p.chat.Blur()
-		p.sidebar.Blur()
-		return p, cmd
+		// Open pattern file in viewer dialog
+		return p, util.CmdHandler(dialogs.OpenDialogMsg{
+			Model: pattern.NewPatternViewerDialog(msg.FilePath),
+		})
 
 	case sidebar.MCPServerSelectedMsg:
 		// Handle MCP server selection - fetch tools for this server
