@@ -161,8 +161,9 @@ func (t *ShellExecuteTool) Execute(ctx context.Context, params map[string]interf
 		// Default to session artifact directory if session exists
 		if sessionArtifactDir, err := artifacts.GetArtifactDir(sessionID, artifacts.SourceAgent); err == nil {
 			// Ensure directory exists
-			artifacts.EnsureArtifactDir(sessionID, artifacts.SourceAgent)
-			workingDir = sessionArtifactDir
+			if err := artifacts.EnsureArtifactDir(sessionID, artifacts.SourceAgent); err == nil {
+				workingDir = sessionArtifactDir
+			}
 		}
 	}
 
@@ -425,9 +426,9 @@ func (t *ShellExecuteTool) Execute(ctx context.Context, params map[string]interf
 		timedOut = true
 		if cmd.Process != nil {
 			// Try SIGKILL for forceful termination
-			cmd.Process.Signal(os.Kill)
+			_ = cmd.Process.Signal(os.Kill) // Ignore error - process may have already exited
 			// Also call Kill() as backup
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error - process may have already exited
 		}
 		// Wait for Wait() to return after kill (brief timeout)
 		select {
@@ -453,9 +454,9 @@ func (t *ShellExecuteTool) Execute(ctx context.Context, params map[string]interf
 		timedOut = true
 		if cmd.Process != nil {
 			// Try SIGKILL for forceful termination
-			cmd.Process.Signal(os.Kill)
+			_ = cmd.Process.Signal(os.Kill) // Ignore error - process may have already exited
 			// Also call Kill() as backup
-			cmd.Process.Kill()
+			_ = cmd.Process.Kill() // Ignore error - process may have already exited
 		}
 		// Wait for Wait() to return after kill (brief timeout)
 		select {
