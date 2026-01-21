@@ -104,6 +104,7 @@ func NewPatternEditorDialog(filePath string) PatternEditorDialog {
 	h.Styles = t.S().Help
 
 	// Read file content
+	// #nosec G304 -- filePath comes from user selecting a pattern file in the sidebar
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		content = []byte("# Error reading file: " + err.Error())
@@ -233,7 +234,7 @@ func (m *patternEditorDialogCmp) saveFile() tea.Cmd {
 	}
 
 	// Write to file
-	if err := os.WriteFile(m.filePath, formattedYAML, 0644); err != nil {
+	if err := os.WriteFile(m.filePath, formattedYAML, 0600); err != nil {
 		m.saveError = fmt.Sprintf("Failed to save file: %s", err.Error())
 		return nil
 	}

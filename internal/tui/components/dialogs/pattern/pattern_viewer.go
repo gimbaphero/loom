@@ -87,6 +87,7 @@ func NewPatternViewerDialog(filePath string) PatternViewerDialog {
 	h.Styles = t.S().Help
 
 	// Read file content
+	// #nosec G304 -- filePath comes from user selecting a pattern file in the sidebar
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		content = []byte("Error reading file: " + err.Error())
