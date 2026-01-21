@@ -27,17 +27,16 @@ import (
 )
 
 var (
-	artifactsLimit         int32
-	artifactsOffset        int32
-	artifactsSource        string
-	artifactsContentType   string
-	artifactsTags          []string
+	artifactsLimit          int32
+	artifactsOffset         int32
+	artifactsSource         string
+	artifactsContentType    string
+	artifactsTags           []string
 	artifactsIncludeDeleted bool
-	artifactsHardDelete    bool
-	artifactsPurpose       string
-	artifactsSearchQuery   string
-	artifactsSearchLimit   int32
-	artifactsOutputFile    string
+	artifactsHardDelete     bool
+	artifactsPurpose        string
+	artifactsSearchLimit    int32
+	artifactsOutputFile     string
 )
 
 var artifactsCmd = &cobra.Command{
