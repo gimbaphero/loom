@@ -786,10 +786,57 @@ func (s *MultiAgentServer) spawnWorkflowSubAgents(ctx context.Context, coordinat
 		return nil // Not a workflow coordinator
 	}
 
-	s.logger.Info("Detected workflow coordinator, spawning sub-agents",
+	s.logger.Info("Detected workflow coordinator, initializing workflow",
 		zap.String("coordinator", coordinatorID),
 		zap.String("workflow", workflowName),
 		zap.String("session", sessionID))
+
+	// AUTO-WORKFLOW INITIALIZATION: Load workflow YAML to get communication topics
+	// This enables auto-subscribe for coordinator without requiring manual subscribe() calls
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		s.logger.Warn("Failed to get home directory for workflow auto-init", zap.Error(err))
+		homeDir = os.Getenv("HOME")
+	}
+	workflowPath := filepath.Join(homeDir, ".loom", "workflows", workflowName+".yaml")
+	if _, statErr := os.Stat(workflowPath); statErr == nil {
+		s.logger.Info("Loading workflow definition for auto-subscribe",
+			zap.String("path", workflowPath))
+
+		// Load workflow config
+		workflowConfig, err := orchestration.LoadWorkflowConfigFromYAML(workflowPath)
+		if err != nil {
+			s.logger.Warn("Failed to load workflow config (coordinator will require manual subscribe)",
+				zap.String("path", workflowPath),
+				zap.Error(err))
+		} else {
+			// Extract communication topic from spec
+			if commInterface, ok := workflowConfig.Spec["communication"]; ok {
+				if commMap, ok := commInterface.(map[string]interface{}); ok {
+					if topic, ok := commMap["topic"].(string); ok && topic != "" {
+						// Auto-subscribe coordinator to workflow topic
+						s.logger.Info("Auto-subscribing coordinator to workflow topic",
+							zap.String("coordinator", coordinatorID),
+							zap.String("topic", topic))
+
+						if s.messageBus != nil {
+							_, err := s.messageBus.Subscribe(ctx, coordinatorID, topic, nil, 100)
+							if err != nil {
+								s.logger.Warn("Failed to auto-subscribe coordinator",
+									zap.String("coordinator", coordinatorID),
+									zap.String("topic", topic),
+									zap.Error(err))
+							} else {
+								s.logger.Info("Successfully auto-subscribed coordinator",
+									zap.String("coordinator", coordinatorID),
+									zap.String("topic", topic))
+							}
+						}
+					}
+				}
+			}
+		}
+	}
 
 	// Find all sub-agents with matching workflow prefix
 	s.mu.RLock()

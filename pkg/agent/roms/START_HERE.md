@@ -169,6 +169,10 @@ receive_message(timeout_seconds=30)
 
 ### Pub-Sub (Broadcast)
 
+**For workflow coordinators:** Subscribe and spawning are automatic - just use `publish()`
+
+**For other agents:**
+
 1. **Subscribe:**
 ```
 subscribe(topic="party-chat")
@@ -180,12 +184,11 @@ subscribe(topic="dnd.*")  # Wildcard
 publish(topic="party-chat", message="Found secret door!")
 ```
 
-3. **Receive (event-driven):**
-```
-receive_broadcast(timeout_seconds=30, max_messages=10)
-```
+3. **Receive:**
+- **Workflow coordinators**: Messages auto-injected - no receive_broadcast() needed
+- **Other agents**: Use `receive_broadcast(timeout_seconds=30, max_messages=10)`
 
-**Patterns:**
+**Topic patterns:**
 - Exact: `"party-chat"`
 - Wildcard: `"dnd.*"` matches dnd.combat, dnd.exploration
 - Multi-level: `"game.*.events"`
