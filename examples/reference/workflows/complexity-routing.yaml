@@ -15,7 +15,9 @@ metadata:
     complexity: high
 
 spec:
-  pattern: conditional
+  type: conditional  # Changed from pattern: conditional
+
+  # Inline agent definitions
   agents:
     - id: complexity-classifier
       name: Complexity Classifier

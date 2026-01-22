@@ -11,7 +11,10 @@ metadata:
     complexity: medium
 
 spec:
-  pattern: debate
+  type: debate  # Changed from pattern: debate
+  rounds: 3
+
+  # Inline agent definitions
   agents:
     - id: architect-advocate
       name: Architect Advocate
@@ -51,9 +54,6 @@ spec:
         - Ask clarifying questions to the debaters
         - Synthesize a balanced recommendation that considers both viewpoints
         - Provide a final summary with pros/cons of each approach
-
-  config:
-    rounds: 3
 
 # Example usage (topic provided at runtime):
 # Should we use microservices architecture or monolithic architecture for our new e-commerce platform?

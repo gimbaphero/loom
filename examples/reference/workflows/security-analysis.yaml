@@ -11,7 +11,11 @@ metadata:
     complexity: high
 
 spec:
-  pattern: parallel
+  type: parallel  # Changed from pattern: parallel
+  merge_strategy: concatenate
+  timeout_seconds: 1800
+
+  # Inline agent definitions
   agents:
     - id: sast-analyzer
       name: SAST Analyzer
@@ -135,12 +139,6 @@ spec:
         Verify compliance with security standards and regulations.
 
         {{user_query}}
-
-  config:
-    merge_strategy: concatenate
-
-orchestration:
-  timeout_seconds: 1800
 
 # Example usage:
 # "Analyze our web application for security vulnerabilities:

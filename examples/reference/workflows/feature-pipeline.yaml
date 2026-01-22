@@ -11,7 +11,45 @@ metadata:
     complexity: high
 
 spec:
-  pattern: pipeline
+  type: pipeline  # Changed from pattern: pipeline
+  initial_prompt: "Design a user authentication system with the following requirements: Support email/password and OAuth2 (Google, GitHub), JWT-based session management, Role-based access control (RBAC), Account lockout after failed attempts, Password reset functionality"
+
+  stages:
+    - agent_id: api-architect
+      prompt_template: |
+        Based on the requirements: {{previous}}
+
+        Design the API specification including:
+        - REST endpoints with HTTP methods
+        - Request/response schemas
+        - Authentication flow
+        - Error handling strategy
+
+    - agent_id: backend-developer
+      prompt_template: |
+        Based on this API specification: {{previous}}
+
+        Implement the backend code including:
+        - Database schema (SQL DDL)
+        - API endpoint implementations
+        - Authentication middleware
+        - Input validation
+        - Error handling
+
+    - agent_id: test-engineer
+      prompt_template: |
+        Based on this implementation: {{previous}}
+
+        Create comprehensive tests:
+        - Unit tests for each component
+        - Integration tests for API endpoints
+        - Security tests (injection attacks, auth bypass)
+        - Performance tests for critical operations
+        - Test data setup and teardown
+
+  pass_full_history: false  # Moved from orchestration section
+
+  # Inline agent definitions
   agents:
     - id: api-architect
       name: API Architect
@@ -29,15 +67,6 @@ spec:
 
         Provide detailed API specifications in a clear format.
 
-      prompt_template: |
-        Based on the requirements: {{previous}}
-
-        Design the API specification including:
-        - REST endpoints with HTTP methods
-        - Request/response schemas
-        - Authentication flow
-        - Error handling strategy
-
     - id: backend-developer
       name: Backend Developer
       system_prompt: |
@@ -53,16 +82,6 @@ spec:
         - Consider edge cases and error scenarios
 
         Provide implementation details including code structure and key logic.
-
-      prompt_template: |
-        Based on this API specification: {{previous}}
-
-        Implement the backend code including:
-        - Database schema (SQL DDL)
-        - API endpoint implementations
-        - Authentication middleware
-        - Input validation
-        - Error handling
 
     - id: test-engineer
       name: Test Engineer
@@ -80,23 +99,5 @@ spec:
 
         Structure tests in a clear, maintainable way.
 
-      prompt_template: |
-        Based on this implementation: {{previous}}
-
-        Create comprehensive tests:
-        - Unit tests for each component
-        - Integration tests for API endpoints
-        - Security tests (injection attacks, auth bypass)
-        - Performance tests for critical operations
-        - Test data setup and teardown
-
-orchestration:
-  pass_full_history: false
-
-# Example usage:
-# "Design a user authentication system with the following requirements:
-# - Support email/password and OAuth2 (Google, GitHub)
-# - JWT-based session management
-# - Role-based access control (RBAC)
-# - Account lockout after failed attempts
-# - Password reset functionality"
+# Example execution:
+# looms workflow run feature-pipeline.yaml

@@ -11,7 +11,12 @@ metadata:
     complexity: low
 
 spec:
-  pattern: swarm
+  type: swarm  # Changed from pattern: swarm
+  strategy: majority
+  confidence_threshold: 0.7
+  share_votes: false
+
+  # Inline agent definitions
   agents:
     - id: database-expert
       name: Database Expert
@@ -81,11 +86,6 @@ spec:
         - Consider trade-offs between perspectives
         - Break ties when votes are split
         - Provide final synthesized recommendation
-
-  config:
-    strategy: majority
-    confidence_threshold: 0.7
-    share_votes: false
 
 # Example usage:
 # "Which database technology should we use for our analytics platform that needs to handle
