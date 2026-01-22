@@ -4,10 +4,11 @@ metadata:
   name: facilitator
   version: "1.0.0"
   description: "Facilitator for brainstorming sessions using pub-sub communication"
+  role: coordinator
+  workflow: brainstorm-session
   labels:
     domain: collaboration
     category: facilitator
-    workflow: brainstorm-session
 
 spec:
   system_prompt: |
