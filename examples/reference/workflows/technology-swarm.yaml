@@ -23,7 +23,7 @@ spec:
     - cost-analyst
     - senior-architect
 
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - database-expert.yaml: Database technology expert for evaluating database options
 # - performance-engineer.yaml: Performance engineering specialist for throughput and latency analysis
 # - devops-specialist.yaml: DevOps specialist for operational excellence assessment

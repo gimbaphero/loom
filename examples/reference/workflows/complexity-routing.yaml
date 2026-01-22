@@ -20,7 +20,7 @@ spec:
   agent_ids:
     - complexity-classifier
 
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - complexity-classifier.yaml: Technical complexity classifier for routing-based decisions
 
 # Example usage:

@@ -10,7 +10,7 @@ Tests confirmed that orchestration pattern execution infrastructure works correc
 
 ## Agent Configs Created
 
-Created 19 agent configuration files in `~/.loom/agents/`:
+Created 19 agent configuration files in `$LOOM_DATA_DIR/agents/`:
 
 **Pipeline Pattern (3):**
 - `api-architect.yaml`
@@ -141,7 +141,7 @@ The orchestration pattern execution system is fully functional:
 
 ### 3. Agent Externalization Complete ✅
 
-Successfully externalized all inline agent definitions to `~/.loom/agents/`:
+Successfully externalized all inline agent definitions to `$LOOM_DATA_DIR/agents/`:
 - 19 new agent configs created
 - All workflow files updated to reference external agents
 - Cleaner, more maintainable workflow structure
@@ -190,7 +190,7 @@ Successfully externalized all inline agent definitions to `~/.loom/agents/`:
 - `examples/reference/workflows/technology-swarm.yaml`
 
 **Agent Configs** (19 new files):
-- `~/.loom/agents/*.yaml` (see list above)
+- `$LOOM_DATA_DIR/agents/*.yaml` (see list above)
 
 ## Related Documentation
 

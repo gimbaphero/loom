@@ -12,14 +12,15 @@ metadata:
 
 spec:
   type: debate  # Changed from pattern: debate
+  topic: "Should we use microservices architecture or monolithic architecture for our new e-commerce platform?"
   rounds: 3
+  moderator_agent_id: senior-architect
 
   agent_ids:
     - architect-advocate
     - pragmatist-engineer
-    - senior-architect
 
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - architect-advocate.yaml: Advocate for architectural best practices and long-term maintainability
 # - pragmatist-engineer.yaml: Pragmatist engineer for practical solutions and business constraints
 # - senior-architect.yaml: Senior architect moderator for synthesizing debate outcomes

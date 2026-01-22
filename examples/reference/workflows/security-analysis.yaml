@@ -22,7 +22,7 @@ spec:
     - dependency-scanner
     - compliance-auditor
 
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - sast-analyzer.yaml: Static Application Security Testing specialist for code analysis
 # - dast-analyzer.yaml: Dynamic Application Security Testing specialist for runtime analysis
 # - threat-modeler.yaml: Threat modeling specialist using STRIDE methodology

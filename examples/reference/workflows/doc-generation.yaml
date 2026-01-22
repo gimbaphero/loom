@@ -20,7 +20,7 @@ spec:
     - technical-writer
     - example-creator
 
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - api-documenter.yaml: API documentation specialist for creating comprehensive technical documentation
 # - technical-writer.yaml: Technical writer for user-friendly guides and tutorials
 # - example-creator.yaml: Example code specialist for practical, real-world code samples

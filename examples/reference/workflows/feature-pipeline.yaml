@@ -52,7 +52,7 @@ spec:
 # Example execution:
 # looms workflow run feature-pipeline.yaml
 #
-# Agent configs used (from ~/.loom/agents/):
+# Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - api-architect.yaml: API architect specializing in RESTful API design
 # - backend-developer.yaml: Senior backend developer implementing production systems
 # - test-engineer.yaml: Test engineer creating comprehensive testing strategies
