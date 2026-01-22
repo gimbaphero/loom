@@ -1,10 +1,10 @@
 # Loom Workflow Patterns - Status and Testing
 
-## ⚠️ Key Finding: Orchestration Pattern Format Mismatch
+## ✅ Orchestration Pattern Format Fixed (Jan 22, 2026)
 
-**Issue:** Examples in `examples/reference/workflows/` use `spec.pattern` (old format), but the implementation expects `spec.type` (new format).
+**Issue:** Examples in `examples/reference/workflows/` used `spec.pattern` (old format), but the implementation expects `spec.type` (new format).
 
-**Fix Required:** Update all orchestration pattern examples to use `spec.type` instead of `spec.pattern`.
+**Fix Applied:** All 6 orchestration pattern examples updated to use `spec.type` format (commit e832632).
 
 **Reference:** See `examples/workflow-all-fields-example.yaml` lines 200-370 for correct orchestration pattern format.
 
@@ -108,24 +108,13 @@ These workflows use static execution patterns for structured agent coordination.
 
 ### Pattern 1: Pipeline
 
-**Status:** ⚠️ Examples need updating from `pattern:` to `type:`
+**Status:** ✅ Fixed (commit e832632)
 
-**Example:** `examples/reference/workflows/feature-pipeline.yaml` (uses old format)
+**Example:** `examples/reference/workflows/feature-pipeline.yaml`
 
 **Description:** Sequential execution where each stage's output becomes next stage's input
 
-**Current YAML (OLD - uses `pattern:`):**
-```yaml
-spec:
-  pattern: pipeline  # ❌ OLD FORMAT
-  agents:
-    - id: stage1
-      name: API Architect
-      system_prompt: |
-        Design APIs...
-```
-
-**Correct YAML (NEW - uses `type:`):**
+**YAML Structure:**
 ```yaml
 spec:
   type: pipeline  # ✅ CORRECT FORMAT
@@ -138,13 +127,13 @@ spec:
   pass_full_history: true
 ```
 
-**Current Issue:** ❌ Examples use `spec.pattern` but implementation expects `spec.type`
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
 
 ---
 
 ### Pattern 2: Fork-Join
 
-**Status:** 📋 YAML parsing implemented, CLI execution unclear
+**Status:** ✅ Fixed (commit e832632)
 
 **Example:** `examples/reference/workflows/code-review.yaml`
 
@@ -153,25 +142,22 @@ spec:
 **YAML Structure:**
 ```yaml
 spec:
-  pattern: fork_join
-  agents:
-    - id: quality-reviewer
-      name: Code Quality Reviewer
-      system_prompt: |
-        Review code quality...
-    - id: security-reviewer
-      name: Security Reviewer
-      system_prompt: |
-        Review security...
-  config:
-    merge_strategy: concatenate
+  type: fork_join  # ✅ CORRECT FORMAT
+  prompt: "Review this code..."
+  agent_ids:
+    - quality-reviewer
+    - security-reviewer
+  merge_strategy: concatenate
+  timeout_seconds: 300
 ```
+
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
 
 ---
 
 ### Pattern 3: Parallel
 
-**Status:** 📋 YAML parsing implemented, CLI execution unclear
+**Status:** ✅ Fixed (commit e832632)
 
 **Examples:**
 - `doc-generation.yaml`
@@ -182,7 +168,9 @@ spec:
 **YAML Structure:**
 ```yaml
 spec:
-  pattern: parallel
+  type: parallel  # ✅ CORRECT FORMAT
+  merge_strategy: concatenate
+  timeout_seconds: 600
   agents:
     - id: task1
       name: Task 1 Agent
@@ -196,11 +184,13 @@ spec:
       prompt_template: "Task 2: {{user_query}}"
 ```
 
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
+
 ---
 
 ### Pattern 4: Debate
 
-**Status:** 📋 YAML parsing implemented, CLI execution unclear
+**Status:** ✅ Fixed (commit e832632)
 
 **Example:** `architecture-debate.yaml`
 
@@ -209,7 +199,8 @@ spec:
 **YAML Structure:**
 ```yaml
 spec:
-  pattern: debate
+  type: debate  # ✅ CORRECT FORMAT
+  rounds: 3
   agents:
     - id: advocate
       name: Architect Advocate
@@ -226,15 +217,15 @@ spec:
       role: moderator
       system_prompt: |
         Moderate and synthesize...
-  config:
-    rounds: 3
 ```
+
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
 
 ---
 
 ### Pattern 5: Conditional
 
-**Status:** 📋 YAML parsing implemented, CLI execution unclear
+**Status:** ✅ Fixed (commit e832632)
 
 **Example:** `complexity-routing.yaml`
 
@@ -243,15 +234,16 @@ spec:
 **YAML Structure:**
 ```yaml
 spec:
-  pattern: conditional
+  type: conditional  # ✅ CORRECT FORMAT
   agents:
     - id: classifier
       name: Complexity Classifier
       role: classifier
       system_prompt: |
         Classify as: simple, medium, complex
-      prompt_template: "Classify: {{user_query}}"
 ```
+
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
 
 **Limitation:** Nested workflows not yet supported
 
@@ -259,7 +251,7 @@ spec:
 
 ### Pattern 6: Swarm
 
-**Status:** 📋 YAML parsing implemented, CLI execution unclear
+**Status:** ✅ Fixed (commit e832632)
 
 **Example:** `technology-swarm.yaml`
 
@@ -268,7 +260,10 @@ spec:
 **YAML Structure:**
 ```yaml
 spec:
-  pattern: swarm
+  type: swarm  # ✅ CORRECT FORMAT
+  strategy: majority  # Options: majority, supermajority, unanimous
+  confidence_threshold: 0.7
+  share_votes: false
   agents:
     - id: expert1
       name: Database Expert
@@ -283,83 +278,79 @@ spec:
       role: judge
       system_prompt: |
         Break ties and synthesize...
-  config:
-    strategy: majority  # Options: majority, supermajority, unanimous
-    confidence_threshold: 0.7
 ```
+
+**Format Fixed:** ✅ Now uses `spec.type` instead of `spec.pattern`
 
 ---
 
 ## Summary
 
-| Pattern | Type | Status | Example | Tested |
-|---------|------|--------|---------|--------|
-| Pub-Sub | Communication | ✅ Working | dungeon-crawl, brainstorm-session | ✅ Yes |
-| Hub-and-Spoke | Communication | ✅ Working | dnd-campaign, vacation-planner | ✅ Yes |
-| Pipeline | Orchestration | 📋 YAML Only | feature-pipeline.yaml | ❌ No |
-| Fork-Join | Orchestration | 📋 YAML Only | code-review.yaml | ❌ No |
-| Parallel | Orchestration | 📋 YAML Only | doc-generation.yaml | ❌ No |
-| Debate | Orchestration | 📋 YAML Only | architecture-debate.yaml | ❌ No |
-| Conditional | Orchestration | 📋 YAML Only | complexity-routing.yaml | ❌ No |
-| Swarm | Orchestration | 📋 YAML Only | technology-swarm.yaml | ❌ No |
+| Pattern | Type | Status | Example | Format Fixed |
+|---------|------|--------|---------|--------------|
+| Pub-Sub | Communication | ✅ Working | dungeon-crawl, brainstorm-session | N/A |
+| Hub-and-Spoke | Communication | ✅ Working | dnd-campaign, vacation-planner | N/A |
+| Pipeline | Orchestration | ✅ Format Fixed | feature-pipeline.yaml | ✅ Yes |
+| Fork-Join | Orchestration | ✅ Format Fixed | code-review.yaml | ✅ Yes |
+| Parallel | Orchestration | ✅ Format Fixed | doc-generation.yaml | ✅ Yes |
+| Debate | Orchestration | ✅ Format Fixed | architecture-debate.yaml | ✅ Yes |
+| Conditional | Orchestration | ✅ Format Fixed | complexity-routing.yaml | ✅ Yes |
+| Swarm | Orchestration | ✅ Format Fixed | technology-swarm.yaml | ✅ Yes |
 
 ## Testing Status
 
-### ✅ Tested and Working (3/8)
-1. Pub-Sub pattern
-2. Hub-and-Spoke pattern
-3. (Both tested successfully Jan 22, 2026)
+### ✅ Communication Patterns - Tested and Working (2/8)
+1. Pub-Sub pattern - Tested successfully Jan 22, 2026
+2. Hub-and-Spoke pattern - Tested successfully Jan 22, 2026
 
-### ❌ Needs Testing/Implementation (6/8)
-1. Pipeline pattern
-2. Fork-Join pattern
-3. Parallel pattern
-4. Debate pattern
-5. Conditional pattern
-6. Swarm pattern
+### ✅ Orchestration Patterns - Format Fixed (6/8)
+1. Pipeline pattern - Fixed Jan 22, 2026 (commit e832632)
+2. Fork-Join pattern - Fixed Jan 22, 2026 (commit e832632)
+3. Parallel pattern - Fixed Jan 22, 2026 (commit e832632)
+4. Debate pattern - Fixed Jan 22, 2026 (commit e832632)
+5. Conditional pattern - Fixed Jan 22, 2026 (commit e832632)
+6. Swarm pattern - Fixed Jan 22, 2026 (commit e832632)
 
-**Issue:** `looms workflow run` command returns "missing spec.type" error for orchestration patterns
+**Status:** All orchestration pattern examples now use correct `spec.type` format. Ready for CLI execution testing with `looms workflow run`.
 
 ## Next Steps
 
-1. ✅ **Communication patterns** - Fully working and tested
+1. ✅ **Communication patterns** - Fully working and tested (Jan 22, 2026)
 
-2. ⚠️ **Orchestration patterns** - Format issue identified:
-   - **Problem:** Examples use `spec.pattern` but implementation expects `spec.type`
-   - **Solution:** Update all 6 orchestration pattern examples in `examples/reference/workflows/` to use correct format
-   - **Template:** Use `examples/workflow-all-fields-example.yaml` as reference (lines 200-370)
-   - **After fix:** Test each pattern with `looms workflow run <file>.yaml`
+2. ✅ **Orchestration patterns format fix** - Complete (Jan 22, 2026, commit e832632):
+   - **Fixed:** All 6 orchestration pattern examples now use `spec.type` format
+   - **Files updated:**
+     - `examples/reference/workflows/feature-pipeline.yaml` → `type: pipeline`
+     - `examples/reference/workflows/code-review.yaml` → `type: fork_join`
+     - `examples/reference/workflows/doc-generation.yaml` → `type: parallel`
+     - `examples/reference/workflows/security-analysis.yaml` → `type: parallel`
+     - `examples/reference/workflows/architecture-debate.yaml` → `type: debate`
+     - `examples/reference/workflows/complexity-routing.yaml` → `type: conditional`
+     - `examples/reference/workflows/technology-swarm.yaml` → `type: swarm`
 
-3. **Quick Fix Example:**
-   ```yaml
-   # OLD (current examples):
-   spec:
-     pattern: pipeline
-     agents: [...]
-
-   # NEW (correct format):
-   spec:
-     type: pipeline
-     initial_prompt: "..."
-     stages: [...]
+3. **TODO: Test orchestration patterns with CLI**
+   ```bash
+   # Test each pattern with workflow run command:
+   looms workflow run examples/reference/workflows/feature-pipeline.yaml
+   looms workflow run examples/reference/workflows/code-review.yaml --prompt "$(cat test-file.go)"
+   looms workflow run examples/reference/workflows/doc-generation.yaml
+   # ... etc for all 6 patterns
    ```
 
-4. **Files to Update:**
-   - `examples/reference/workflows/feature-pipeline.yaml` → use `type: pipeline`
-   - `examples/reference/workflows/code-review.yaml` → use `type: fork-join`
-   - `examples/reference/workflows/doc-generation.yaml` → use `type: parallel`
-   - `examples/reference/workflows/security-analysis.yaml` → use `type: parallel`
-   - `examples/reference/workflows/architecture-debate.yaml` → use `type: debate`
-   - `examples/reference/workflows/complexity-routing.yaml` → use `type: conditional`
-   - `examples/reference/workflows/technology-swarm.yaml` → use `type: swarm`
+4. **TODO: Document orchestration pattern execution results**
+   - Create test cases for each pattern
+   - Document any CLI usage patterns
+   - Update status file with test results
 
 ## Recent Changes
 
 **Jan 22, 2026:**
 - Simplified all workflow agent prompts (50-70% reduction)
 - Implemented dynamic communication injection
-- All communication patterns tested and working
-- Committed to `weaver-updates` branch (commit d5f3ec7)
+- All communication patterns tested and working (commit d5f3ec7)
+- **Fixed all 6 orchestration pattern examples** to use `spec.type` instead of `spec.pattern` (commit e832632)
+- Updated WORKFLOW-PATTERNS-STATUS.md documentation with fix status
+- All examples now ready for CLI testing with `looms workflow run`
 
 ---
 
