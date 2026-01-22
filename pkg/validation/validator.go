@@ -401,6 +401,107 @@ func validateOrchestrationWorkflowStructure(spec map[string]interface{}) []Valid
 	// Pattern-specific validation
 	errors = append(errors, validatePatternSpecificFields(spec, patternValue)...)
 
+	// Schema validation: check for invalid/unexpected fields
+	errors = append(errors, validateOrchestrationSchema(spec, patternValue)...)
+
+	return errors
+}
+
+// validateOrchestrationSchema validates that only valid fields are present for the pattern type.
+// This catches typos, deprecated fields, and fields that don't belong to the pattern.
+func validateOrchestrationSchema(spec map[string]interface{}, patternType string) []ValidationError {
+	var errors []ValidationError
+
+	// Define valid fields for each pattern type
+	validFields := map[string][]string{
+		"debate": {
+			"pattern", "type", // Pattern identifier
+			"topic", "agent_ids", "rounds", "merge_strategy", "moderator_agent_id", // Debate-specific
+		},
+		"fork-join": {
+			"pattern", "type", // Pattern identifier
+			"prompt", "agent_ids", "merge_strategy", "timeout_seconds", // Fork-join specific
+		},
+		"pipeline": {
+			"pattern", "type", // Pattern identifier
+			"initial_prompt", "stages", "pass_full_history", // Pipeline specific
+		},
+		"parallel": {
+			"pattern", "type", // Pattern identifier
+			"tasks", "merge_strategy", "timeout_seconds", // Parallel specific
+		},
+		"conditional": {
+			"pattern", "type", // Pattern identifier
+			"condition_agent_id", "condition_prompt", "branches", "default_branch", // Conditional specific
+		},
+		"iterative": {
+			"pattern", "type", // Pattern identifier
+			"max_iterations", "restart_topic", "restart_policy", "restart_triggers", "pipeline", // Iterative specific
+		},
+		"swarm": {
+			"pattern", "type", // Pattern identifier
+			"question", "agent_ids", "strategy", "confidence_threshold", "share_votes", "judge_agent_id", // Swarm specific
+		},
+	}
+
+	allowedFields, ok := validFields[patternType]
+	if !ok {
+		// Unknown pattern type, skip schema validation
+		return errors
+	}
+
+	// Create a set for faster lookup
+	allowedSet := make(map[string]bool)
+	for _, field := range allowedFields {
+		allowedSet[field] = true
+	}
+
+	// Check each field in the spec
+	for field := range spec {
+		if !allowedSet[field] {
+			// Check if it's a commonly confused field
+			suggestion := ""
+			switch field {
+			case "agents":
+				if patternType == "fork-join" || patternType == "debate" || patternType == "swarm" {
+					suggestion = fmt.Sprintf("Use 'agent_ids' instead of 'agents' for %s pattern", patternType)
+				}
+			case "config":
+				suggestion = "Configuration options (timeout, rounds, etc.) go directly under spec, not nested under 'config'"
+			case "execution":
+				suggestion = "Use 'config' section in top-level workflow, not 'execution' under spec"
+			case "agent_id":
+				if patternType == "parallel" {
+					suggestion = "Use 'tasks' array with 'agent_id' field inside each task, not top-level 'agent_id'"
+				}
+			case "workflow_type":
+				suggestion = "Use 'type' or 'pattern' instead of 'workflow_type'"
+			case "aggregation":
+				suggestion = "Use 'merge_strategy' instead of 'aggregation'"
+			}
+
+			if suggestion != "" {
+				errors = append(errors, ValidationError{
+					Level:    LevelStructure,
+					Field:    fmt.Sprintf("spec.%s", field),
+					Message:  fmt.Sprintf("Invalid field for %s pattern", patternType),
+					Got:      field,
+					Expected: fmt.Sprintf("Valid fields: %v", allowedFields),
+					Fix:      suggestion,
+				})
+			} else {
+				errors = append(errors, ValidationError{
+					Level:    LevelStructure,
+					Field:    fmt.Sprintf("spec.%s", field),
+					Message:  fmt.Sprintf("Unexpected field for %s pattern", patternType),
+					Got:      field,
+					Expected: fmt.Sprintf("Valid fields: %v", allowedFields),
+					Fix:      fmt.Sprintf("Remove this field or check the documentation for %s pattern", patternType),
+				})
+			}
+		}
+	}
+
 	return errors
 }
 
@@ -421,25 +522,13 @@ func validatePatternSpecificFields(spec map[string]interface{}, patternType stri
 			})
 		}
 		if agentIds, hasAgentIds := spec["agent_ids"]; !hasAgentIds {
-			// Check if they mistakenly used 'agents' instead of 'agent_ids'
-			if _, hasAgents := spec["agents"]; hasAgents {
-				errors = append(errors, ValidationError{
-					Level:    LevelStructure,
-					Field:    "spec.agents",
-					Message:  "INCORRECT FIELD: fork-join uses 'agent_ids' not 'agents'",
-					Got:      "agents: [...]",
-					Expected: "agent_ids: [agent1, agent2]",
-					Fix:      "Rename 'agents:' to 'agent_ids:' - fork-join requires agent_ids",
-				})
-			} else {
-				errors = append(errors, ValidationError{
-					Level:    LevelStructure,
-					Field:    "spec.agent_ids",
-					Message:  "Missing required field for fork-join pattern",
-					Expected: "agent_ids: [agent1, agent2]",
-					Fix:      "Add 'agent_ids: [bug-detector, perf-analyzer]' under spec",
-				})
-			}
+			errors = append(errors, ValidationError{
+				Level:    LevelStructure,
+				Field:    "spec.agent_ids",
+				Message:  "Missing required field for fork-join pattern",
+				Expected: "agent_ids: [agent1, agent2]",
+				Fix:      "Add 'agent_ids: [bug-detector, perf-analyzer]' under spec",
+			})
 		} else if agentList, ok := agentIds.([]interface{}); ok && len(agentList) == 0 {
 			errors = append(errors, ValidationError{
 				Level:    LevelStructure,
