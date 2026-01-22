@@ -15,17 +15,18 @@ spec:
   merge_strategy: concatenate
   timeout_seconds: 600
 
-  agent_ids:
-    - api-documenter
-    - technical-writer
-    - example-creator
+  tasks:
+    - agent_id: api-documenter
+      prompt: "Create API documentation for the workflow orchestration system. Include endpoint descriptions, request/response formats, and authentication requirements."
+    - agent_id: technical-writer
+      prompt: "Write a user-friendly guide for the workflow orchestration system. Include getting started instructions, common use cases, and troubleshooting tips."
+    - agent_id: example-creator
+      prompt: "Create practical code examples for the workflow orchestration system. Include sample YAML files for each pattern type (debate, fork-join, pipeline, parallel, conditional)."
 
 # Agent configs used (from $LOOM_DATA_DIR/agents/):
 # - api-documenter.yaml: API documentation specialist for creating comprehensive technical documentation
 # - technical-writer.yaml: Technical writer for user-friendly guides and tutorials
 # - example-creator.yaml: Example code specialist for practical, real-world code samples
 
-# Example usage:
-# "Generate documentation for our workflow orchestration system with 5 patterns:
-# Debate, Fork-Join, Pipeline, Parallel, and Conditional. Include API reference,
-# user guide, and example YAML files."
+# Note: Each task in the parallel pattern has its own specific prompt. The tasks execute
+# independently and their results are concatenated using the merge_strategy.
