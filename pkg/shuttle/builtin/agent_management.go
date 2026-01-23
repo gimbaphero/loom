@@ -50,7 +50,7 @@ Use this tool to:
 - Validate YAML before writing
 - Delete configurations
 
-All files are written to ~/.loom/agents/ or ~/.loom/workflows/ and automatically validated.
+All files are written to $LOOM_DATA_DIR/agents/ or $LOOM_DATA_DIR/workflows/ (defaults to ~/.loom) and automatically validated.
 Validation errors are returned immediately with actionable fixes.
 
 This tool is intended for meta-agents that generate configurations (like weaver).`
@@ -204,7 +204,8 @@ func (t *AgentManagementTool) executeCreate(ctx context.Context, configType stri
 	}
 
 	// Ensure directory exists
-	if err := os.MkdirAll(dir, 0755); err != nil {
+	// nosec G301 - Directory permissions 0750 (owner: rwx, group: r-x, other: none)
+	if err := os.MkdirAll(dir, 0750); err != nil {
 		return &shuttle.Result{
 			Success: false,
 			Error: &shuttle.Error{
@@ -236,7 +237,7 @@ func (t *AgentManagementTool) executeCreate(ctx context.Context, configType stri
 	}
 
 	// Write file
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
 		return &shuttle.Result{
 			Success: false,
 			Error: &shuttle.Error{
@@ -335,7 +336,7 @@ func (t *AgentManagementTool) executeUpdate(ctx context.Context, configType stri
 	}
 
 	// Write file
-	if err := os.WriteFile(filePath, []byte(content), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(content), 0600); err != nil {
 		return &shuttle.Result{
 			Success: false,
 			Error: &shuttle.Error{
@@ -390,6 +391,7 @@ func (t *AgentManagementTool) executeRead(ctx context.Context, configType string
 	filePath := filepath.Join(dir, filename)
 
 	// Read file
+	// nosec G304 - File path is validated and restricted to $LOOM_DATA_DIR/agents/ or $LOOM_DATA_DIR/workflows/
 	content, err := os.ReadFile(filePath)
 	if err != nil {
 		if os.IsNotExist(err) {

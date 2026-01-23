@@ -392,19 +392,14 @@ func runWorkflow(cmd *cobra.Command, args []string) {
 		ag.RegisterTool(sharedMemWriteTool)
 
 		// Auto-inject pub-sub tools for broadcast communication
-		subscribeTool := builtin.NewSubscribeTool(messageBus, agentID)
-		ag.RegisterTool(subscribeTool)
-
+		// Note: subscribe/receive_broadcast removed - workflow agents auto-subscribed and messages auto-injected
 		publishTool := builtin.NewPublishTool(messageBus, agentID)
 		ag.RegisterTool(publishTool)
-
-		receiveBroadcastTool := builtin.NewReceiveBroadcastTool(messageBus, agentID)
-		ag.RegisterTool(receiveBroadcastTool)
 
 		logger.Info("Injected presentation and communication tools",
 			zap.String("agent", agentID),
 			zap.Int("presentation_tools", 4),
-			zap.Int("communication_tools", 5))
+			zap.Int("communication_tools", 3))
 
 		orchestrator.RegisterAgent(agentID, ag)
 		toolCount := ag.ToolCount()
