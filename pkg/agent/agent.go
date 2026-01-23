@@ -491,7 +491,7 @@ func (a *Agent) getSystemPrompt() string {
 	if a.config != nil && a.config.SystemPrompt != "" {
 		// Combine ROM + System Prompt
 		if romContent != "" {
-			return formatSystemPromptWithDatetime(romContent + "\n\n---\n\n" + a.config.SystemPrompt, a.workflowCommContext)
+			return formatSystemPromptWithDatetime(romContent+"\n\n---\n\n"+a.config.SystemPrompt, a.workflowCommContext)
 		}
 		return formatSystemPromptWithDatetime(a.config.SystemPrompt, a.workflowCommContext)
 	}
@@ -539,7 +539,7 @@ func (a *Agent) getSystemPrompt() string {
 	if a.config.SystemPrompt != "" {
 		// Combine ROM + System Prompt
 		if romContent != "" {
-			return formatSystemPromptWithDatetime(romContent + "\n\n---\n\n" + a.config.SystemPrompt, a.workflowCommContext)
+			return formatSystemPromptWithDatetime(romContent+"\n\n---\n\n"+a.config.SystemPrompt, a.workflowCommContext)
 		}
 		return formatSystemPromptWithDatetime(a.config.SystemPrompt, a.workflowCommContext)
 	}
@@ -1616,21 +1616,26 @@ func (a *Agent) executeToolWithSelfCorrection(ctx Context, toolName string, inpu
 	var result *shuttle.Result
 	var err error
 
-	// CRITICAL FIX: Add session_id to context for tools that need it
-	// Tools like recall_conversation, search_conversation, and clear_recalled_context
-	// expect session_id to be available in context
-	// Wrap the context to add session_id while preserving the Context interface
+	// CRITICAL FIX: Add session_id and agent_id to context for tools that need it
+	// Tools like recall_conversation, search_conversation, clear_recalled_context, and agent_management
+	// expect session_id and agent_id to be available in context
+	// Wrap the context to add both while preserving the Context interface
 	ctxWithSession := &contextWithValue{
 		Context: ctx,
 		key:     "session_id",
 		val:     sessionID,
+	}
+	ctxWithAgent := &contextWithValue{
+		Context: ctxWithSession,
+		key:     "agent_id",
+		val:     a.config.Name,
 	}
 
 	// Execute with circuit breaker if enabled
 	if a.circuitBreakers != nil {
 		breaker := a.circuitBreakers.GetBreaker(toolName)
 		cbErr := breaker.Execute(func() error {
-			result, err = a.executor.Execute(ctxWithSession, toolName, input)
+			result, err = a.executor.Execute(ctxWithAgent, toolName, input)
 			return err
 		})
 
@@ -1640,7 +1645,7 @@ func (a *Agent) executeToolWithSelfCorrection(ctx Context, toolName string, inpu
 		}
 	} else {
 		// No circuit breaker - execute directly
-		result, err = a.executor.Execute(ctxWithSession, toolName, input)
+		result, err = a.executor.Execute(ctxWithAgent, toolName, input)
 	}
 
 	// If execution succeeded and guardrails enabled, clear error record

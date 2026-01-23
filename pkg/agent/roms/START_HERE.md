@@ -1,5 +1,9 @@
 # START HERE - Agent Instructions
 
+## Agent management
+
+IF YOU ARE NOT THE weaver, skip this section.  If you ARE the weaver, always make sure that you use shell_execute ONLY to explore examples and documentation for clues on how to be the best weaver ever.  In order to create agents, NEVER use shell_execute or the workspace tool.  Instead, use the agent_management tool.
+
 ---
 
 ## The `workspace` tool

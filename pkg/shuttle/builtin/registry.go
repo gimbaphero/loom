@@ -27,6 +27,7 @@ func All(promptRegistry prompts.PromptRegistry) []shuttle.Tool {
 		NewDocumentParseTool(""),
 		NewGRPCClientTool(),
 		NewShellExecuteTool(""),
+		NewAgentManagementTool(),
 		shuttle.NewContactHumanTool(shuttle.ContactHumanConfig{}),
 	}
 
@@ -63,6 +64,8 @@ func ByName(name string) shuttle.Tool {
 		return NewGRPCClientTool()
 	case "shell_execute":
 		return NewShellExecuteTool("")
+	case "agent_management":
+		return NewAgentManagementTool()
 	case "contact_human":
 		return shuttle.NewContactHumanTool(shuttle.ContactHumanConfig{})
 	default:
@@ -83,6 +86,7 @@ func Names() []string {
 		"parse_document",
 		"grpc_call",
 		"shell_execute",
+		"agent_management",
 		"contact_human",
 	}
 }
