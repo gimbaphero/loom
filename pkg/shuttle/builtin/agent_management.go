@@ -390,9 +390,8 @@ func (t *AgentManagementTool) executeRead(ctx context.Context, configType string
 	}
 	filePath := filepath.Join(dir, filename)
 
-	// Read file
-	// nosec G304 - File path is validated and restricted to $LOOM_DATA_DIR/agents/ or $LOOM_DATA_DIR/workflows/
-	content, err := os.ReadFile(filePath)
+	// Read file - path validated and restricted to $LOOM_DATA_DIR/agents/ or $LOOM_DATA_DIR/workflows/
+	content, err := os.ReadFile(filePath) // #nosec G304 -- Path is validated and sanitized above
 	if err != nil {
 		if os.IsNotExist(err) {
 			return &shuttle.Result{
