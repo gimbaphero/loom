@@ -91,9 +91,9 @@ type RegistryConfig struct {
 	ToolRegistry *toolregistry.Registry // Tool search registry for dynamic tool discovery
 
 	// Agent dependencies (injected by server)
-	ErrorStore        ErrorStore              // For error tracking and retrieval
+	ErrorStore        ErrorStore                 // For error tracking and retrieval
 	PermissionChecker *shuttle.PermissionChecker // For permission validation
-	ArtifactStore     interface{}             // artifacts.Store for workspace tool
+	ArtifactStore     interface{}                // artifacts.Store for workspace tool
 
 	// Database encryption (opt-in for enterprise deployments)
 	EncryptDatabase bool   // Enable SQLCipher encryption
