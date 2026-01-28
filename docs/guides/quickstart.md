@@ -34,7 +34,7 @@ Get a working Loom agent in 5 minutes. Describe what you need, and the weaver ge
 ### Step 1: Build from Source
 
 ```bash
-git clone https://github.com/Teradata-TIO/loom
+git clone https://github.com/teradata-labs/loom
 cd loom
 just build
 ```
@@ -130,7 +130,7 @@ After connecting:
 
 ## Configuration
 
-Config file location: `~/.loom/looms.yaml`
+Config file location: `$LOOM_DATA_DIR/looms.yaml`
 
 ```yaml
 server:
@@ -144,7 +144,7 @@ llm:
   max_tokens: 4096
 
 database:
-  path: ~/.loom/loom.db
+  path: $LOOM_DATA_DIR/loom.db
   driver: sqlite
 ```
 
@@ -189,7 +189,7 @@ ollama serve
 ### Thread Not Loading
 
 1. Check server logs for errors
-2. Verify config saved: `ls ~/.loom/agents/`
+2. Verify config saved: `ls $LOOM_DATA_DIR/agents/`
 3. Restart server: `bin/looms serve`
 
 

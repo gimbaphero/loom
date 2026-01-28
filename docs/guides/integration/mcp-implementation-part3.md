@@ -22,9 +22,9 @@ import (
     "context"
     "log"
 
-    "github.com/Teradata-TIO/loom/pkg/agent"
-    "github.com/Teradata-TIO/loom/pkg/llm"
-    "github.com/Teradata-TIO/loom/pkg/mcp/manager"
+    "github.com/teradata-labs/loom/pkg/agent"
+    "github.com/teradata-labs/loom/pkg/llm"
+    "github.com/teradata-labs/loom/pkg/mcp/manager"
     "go.uber.org/zap"
 )
 
@@ -135,7 +135,7 @@ import (
     "context"
     "os"
 
-    "github.com/Teradata-TIO/loom/pkg/mcp/server"
+    "github.com/teradata-labs/loom/pkg/mcp/server"
 )
 
 func main() {
@@ -219,7 +219,7 @@ response, _ := ag.Chat(ctx, "session-1", `
 Equivalent YAML configuration:
 
 ```yaml
-# ~/.loom/looms.yaml
+# $LOOM_DATA_DIR/looms.yaml
 mcp:
   servers:
     filesystem:
@@ -240,7 +240,7 @@ mcp:
 ```
 
 ```yaml
-# ~/.loom/agents/my-agent.yaml
+# $LOOM_DATA_DIR/agents/my-agent.yaml
 tools:
   mcp:
     - server: "filesystem"

@@ -189,7 +189,7 @@ import (
     "fmt"
     "log"
 
-    "github.com/Teradata-TIO/loom/pkg/agent"
+    "github.com/teradata-labs/loom/pkg/agent"
 )
 
 func main() {
@@ -382,7 +382,7 @@ message WeaveResponse {
 
 ```go
 import (
-    loomv1 "github.com/Teradata-TIO/loom/gen/go/loom/v1"
+    loomv1 "github.com/teradata-labs/loom/gen/go/loom/v1"
 )
 
 client := loomv1.NewLoomServiceClient(conn)
@@ -706,7 +706,7 @@ Start the multi-agent server.
 
 **Flags**:
 ```
---config string       Path to server config (default: ~/.loom/server.yaml)
+--config string       Path to server config (default: $LOOM_DATA_DIR/server.yaml)
 --port int            gRPC port (default: 50051)
 --http-port int       HTTP gateway port (default: 8080)
 --agents stringArray  Agent configs to load (repeatable)

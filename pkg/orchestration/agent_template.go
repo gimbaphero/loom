@@ -62,6 +62,46 @@ type AgentSpec struct {
 	Metadata     map[string]string      `yaml:"metadata,omitempty"`
 }
 
+// UnmarshalYAML implements custom YAML unmarshaling for AgentSpec
+// Supports both "config" and "behavior" field names for backward compatibility
+func (s *AgentSpec) UnmarshalYAML(value *yaml.Node) error {
+	// Define a temporary struct with all fields as interface{}
+	type rawSpec struct {
+		Name         string                 `yaml:"name,omitempty"`
+		Description  string                 `yaml:"description,omitempty"`
+		SystemPrompt string                 `yaml:"system_prompt,omitempty"`
+		LLM          map[string]interface{} `yaml:"llm,omitempty"`
+		Tools        map[string]interface{} `yaml:"tools,omitempty"`
+		Memory       map[string]interface{} `yaml:"memory,omitempty"`
+		Config       map[string]interface{} `yaml:"config,omitempty"`   // Alias for Behavior
+		Behavior     map[string]interface{} `yaml:"behavior,omitempty"` // Canonical name
+		Metadata     map[string]string      `yaml:"metadata,omitempty"`
+	}
+
+	var raw rawSpec
+	if err := value.Decode(&raw); err != nil {
+		return err
+	}
+
+	// Copy fields
+	s.Name = raw.Name
+	s.Description = raw.Description
+	s.SystemPrompt = raw.SystemPrompt
+	s.LLM = raw.LLM
+	s.Tools = raw.Tools
+	s.Memory = raw.Memory
+	s.Metadata = raw.Metadata
+
+	// Support both "config" and "behavior" - "behavior" takes precedence
+	if raw.Behavior != nil {
+		s.Behavior = raw.Behavior
+	} else if raw.Config != nil {
+		s.Behavior = raw.Config
+	}
+
+	return nil
+}
+
 // TemplateRegistry manages agent templates
 type TemplateRegistry struct {
 	templates map[string]*AgentTemplateConfig
@@ -396,10 +436,10 @@ func (r *TemplateRegistry) convertToAgentConfig(spec *AgentSpec) (*loomv1.AgentC
 		config.Llm = &loomv1.LLMConfig{
 			Provider:    getStringValue(spec.LLM, "provider"),
 			Model:       getStringValue(spec.LLM, "model"),
-			Temperature: float32(getFloatValue(spec.LLM, "temperature")),
-			MaxTokens:   int32(getIntValue(spec.LLM, "max_tokens")),
-			TopP:        float32(getFloatValue(spec.LLM, "top_p")),
-			TopK:        int32(getIntValue(spec.LLM, "top_k")),
+			Temperature: getFloat32Value(spec.LLM, "temperature"),
+			MaxTokens:   getInt32Value(spec.LLM, "max_tokens"),
+			TopP:        getFloat32Value(spec.LLM, "top_p"),
+			TopK:        getInt32Value(spec.LLM, "top_k"),
 		}
 
 		// Handle stop_sequences
@@ -473,16 +513,18 @@ func (r *TemplateRegistry) convertToAgentConfig(spec *AgentSpec) (*loomv1.AgentC
 			Type:       getStringValue(spec.Memory, "type"),
 			Path:       getStringValue(spec.Memory, "path"),
 			Dsn:        getStringValue(spec.Memory, "dsn"),
-			MaxHistory: int32(getIntValue(spec.Memory, "max_history")),
+			MaxHistory: getInt32Value(spec.Memory, "max_history"),
 		}
 	}
 
 	// Convert Behavior config
 	if spec.Behavior != nil {
 		config.Behavior = &loomv1.BehaviorConfig{
-			MaxIterations:      int32(getIntValue(spec.Behavior, "max_iterations")),
-			TimeoutSeconds:     int32(getIntValue(spec.Behavior, "timeout_seconds")),
+			MaxIterations:      getInt32Value(spec.Behavior, "max_iterations"),
+			TimeoutSeconds:     getInt32Value(spec.Behavior, "timeout_seconds"),
 			AllowCodeExecution: getBoolValue(spec.Behavior, "allow_code_execution"),
+			MaxTurns:           getInt32Value(spec.Behavior, "max_turns"),
+			MaxToolExecutions:  getInt32Value(spec.Behavior, "max_tool_executions"),
 		}
 
 		// Handle allowed_domains
@@ -520,6 +562,46 @@ func getIntValue(m map[string]interface{}, key string) int {
 		return int(v)
 	}
 	return 0
+}
+
+// getInt32Value safely extracts an int32 value from a map
+func getInt32Value(m map[string]interface{}, key string) int32 {
+	switch v := m[key].(type) {
+	case int:
+		// Safe conversion with bounds check
+		if v > 2147483647 || v < -2147483648 {
+			return 0 // Out of int32 range
+		}
+		return int32(v)
+	case int32:
+		return v
+	case int64:
+		// Safe conversion with bounds check
+		if v > 2147483647 || v < -2147483648 {
+			return 0 // Out of int32 range
+		}
+		return int32(v)
+	case float64:
+		// Safe conversion with bounds check
+		if v > 2147483647 || v < -2147483648 {
+			return 0 // Out of int32 range
+		}
+		return int32(v)
+	}
+	return 0
+}
+
+// getFloat32Value safely extracts a float32 value from a map
+func getFloat32Value(m map[string]interface{}, key string) float32 {
+	switch v := m[key].(type) {
+	case float64:
+		return float32(v)
+	case float32:
+		return v
+	case int:
+		return float32(v)
+	}
+	return 0.0
 }
 
 func getFloatValue(m map[string]interface{}, key string) float64 {
