@@ -19,13 +19,23 @@ try {
     # Fetch checksums (decode byte array as UTF-8)
     $loomResponse = Invoke-WebRequest -Uri $loomChecksumUrl -UseBasicParsing
     $loomChecksumRaw = [System.Text.Encoding]::UTF8.GetString($loomResponse.Content).Trim()
-    # Extract only first 64 hex chars (sha256 files often include filename after hash)
-    $loomChecksum = ($loomChecksumRaw -split '\s+')[0].Substring(0, [Math]::Min(64, $loomChecksumRaw.Length))
+    # Handle both "hash" and "hash  filename" formats - split and take first part
+    $loomChecksum = ($loomChecksumRaw -split '\s+')[0]
+
+    # Validate checksum is exactly 64 hex characters
+    if ($loomChecksum.Length -ne 64 -or $loomChecksum -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Invalid loom checksum: '$loomChecksum' (length: $($loomChecksum.Length))"
+    }
 
     $loomsResponse = Invoke-WebRequest -Uri $loomsChecksumUrl -UseBasicParsing
     $loomsChecksumRaw = [System.Text.Encoding]::UTF8.GetString($loomsResponse.Content).Trim()
-    # Extract only first 64 hex chars (sha256 files often include filename after hash)
-    $loomsChecksum = ($loomsChecksumRaw -split '\s+')[0].Substring(0, [Math]::Min(64, $loomsChecksumRaw.Length))
+    # Handle both "hash" and "hash  filename" formats - split and take first part
+    $loomsChecksum = ($loomsChecksumRaw -split '\s+')[0]
+
+    # Validate checksum is exactly 64 hex characters
+    if ($loomsChecksum.Length -ne 64 -or $loomsChecksum -notmatch '^[0-9a-fA-F]{64}$') {
+        throw "Invalid looms checksum: '$loomsChecksum' (length: $($loomsChecksum.Length))"
+    }
 
     Write-Host "✓ loom checksum: $loomChecksum" -ForegroundColor Green
     Write-Host "✓ looms checksum: $loomsChecksum" -ForegroundColor Green
