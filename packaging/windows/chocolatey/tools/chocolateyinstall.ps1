@@ -31,7 +31,7 @@ $packageArgs = @{
   packageName   = $packageName
   unzipLocation = $toolsDir
   url64bit      = "https://github.com/teradata-labs/loom/releases/download/v$version/loom-windows-amd64.exe.zip"
-  checksum64    = '0000000000000000000000000000000000000000000000000000000000000000' # loom TUI
+  checksum64    = 'BE703E160C598EF13C2577C30D3316460F1BC05C0B72E9847A893C50248AD799' # loom TUI
   checksumType64= 'sha256'
 }
 
@@ -41,7 +41,7 @@ Install-ChocolateyZipPackage @packageArgs
 # SECURITY: Download official looms server binary from GitHub releases
 # Checksum verified against official release artifacts
 $packageArgs['url64bit'] = "https://github.com/teradata-labs/loom/releases/download/v$version/looms-windows-amd64.exe.zip"
-$packageArgs['checksum64'] = '0000000000000000000000000000000000000000000000000000000000000000' # looms server
+$packageArgs['checksum64'] = '447E9ED55077354539276BEF2512CD88E76E41027BBA9E968F457E4CF16BFF0B' # looms server
 
 # Download and extract looms server
 Install-ChocolateyZipPackage @packageArgs
@@ -70,11 +70,12 @@ $tempExtract = Join-Path $env:TEMP 'loom-extract'
 
 try {
     # Use Chocolatey helper for better security integration
-    # Note: Patterns archive doesn't have a checksum file, but it's from official repo
     Get-ChocolateyWebFile -PackageName $packageName `
         -FileFullPath $tempZip `
         -Url $patternsUrl `
-        -Url64bit $patternsUrl
+        -Url64bit $patternsUrl `
+        -Checksum 'ad439929d1991e9f215680b8fc5c5c5c3c0517dfed32290985d01366c110137d' `
+        -ChecksumType 'sha256'
 
     # Extract and find patterns directory
     Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force

@@ -3,15 +3,13 @@
   <metadata>
     <id>loom</id>
     <version>1.1.0</version>
-    <packageSourceUrl>https://github.com/teradata-labs/loom/tree/main/chocolatey</packageSourceUrl>
+    <packageSourceUrl>https://github.com/teradata-labs/loom/tree/main/packaging/windows/chocolatey</packageSourceUrl>
     <owners>Teradata Labs</owners>
     <title>Loom AI Agent Framework</title>
     <authors>Teradata Labs</authors>
     <projectUrl>https://github.com/teradata-labs/loom</projectUrl>
-    <iconUrl>https://raw.githubusercontent.com/teradata-labs/loom/main/docs/logo.png</iconUrl>
     <licenseUrl>https://github.com/teradata-labs/loom/blob/main/LICENSE</licenseUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
-    <projectSourceUrl>https://github.com/teradata-labs/loom</projectSourceUrl>
     <docsUrl>https://github.com/teradata-labs/loom#readme</docsUrl>
     <bugTrackerUrl>https://github.com/teradata-labs/loom/issues</bugTrackerUrl>
     <tags>loom ai llm agents anthropic claude openai golang framework multi-agent orchestration automation</tags>
