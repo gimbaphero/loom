@@ -34,17 +34,17 @@ try {
     $scriptPath = Join-Path $PSScriptRoot "tools\chocolateyinstall.ps1"
     $content = Get-Content $scriptPath -Raw
 
-    # Update version
-    $content = $content -replace "(\$version = ').*?(')", "`$1$Version`$2"
+    # Update version (use string concatenation to avoid escaping issues)
+    $content = $content -replace "(\$version = ').*?(')", ('$1' + $Version + '$2')
 
     # Update loom checksum (first occurrence)
-    $content = $content -replace "(checksum64\s*=\s*')[0-9a-fA-F]{64}('.*?# loom TUI)", "`$1$loomChecksum`$2"
+    $content = $content -replace "(checksum64\s*=\s*')[0-9a-fA-F]{64}('.*?# loom TUI)", ('$1' + $loomChecksum + '$2')
 
     # Update looms checksum (second occurrence)
-    $content = $content -replace "(\`$packageArgs\['checksum64'\] = ')[0-9a-fA-F]{64}('.*?# looms server)", "`$1$loomsChecksum`$2"
+    $content = $content -replace "(\`$packageArgs\['checksum64'\] = ')[0-9a-fA-F]{64}('.*?# looms server)", ('$1' + $loomsChecksum + '$2')
 
     # Write updated content (keep newlines intact!)
-    Set-Content -Path $scriptPath -Value $content -NoNewline:$false
+    Set-Content -Path $scriptPath -Value $content
 
     Write-Host ""
     Write-Host "✅ Successfully updated chocolateyinstall.ps1" -ForegroundColor Green
